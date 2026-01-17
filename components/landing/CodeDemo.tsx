@@ -2,53 +2,69 @@
 
 import { motion } from 'framer-motion';
 
-const codeExample = `const config = {
+const codeExample = `import { AxCrew } from '@amitdeshmukh/ax-crew';
+
+const config = {
   crew: [{
     name: "Planner",
-    description: "Creates a plan to complete a task",
+    description: "Creates execution plans",
     signature: "task:string -> plan:string",
     provider: "openai",
     providerKeyName: "OPENAI_API_KEY",
-    ai: {
-      model: "gpt-4",
-      temperature: 0
-    }
+    ai: { model: "gpt-4", temperature: 0 }
   }, {
-    name: "Manager",
-    description: "Executes the plan",
-    signature: "question:string, plan:string -> answer:string",
+    name: "Executor",
+    description: "Executes plans with tools",
+    signature: "task:string, plan:string -> result:string",
     provider: "anthropic",
     providerKeyName: "ANTHROPIC_API_KEY",
     ai: { model: "claude-3-sonnet" },
-    agents: ["Planner"]  // Sub-agent dependency
+    agents: ["Planner"],      // Sub-agent
+    functions: ["WebSearch"]  // Tools
   }]
 };
 
-const crew = new AxCrew(config);
+const crew = new AxCrew(config, myFunctions);
 await crew.addAllAgents();
 
-const manager = crew.agents.get("Manager");
-const { answer } = await manager.forward({
-  question: "How do I build a website?"
-});`;
+// Execute with shared state and streaming
+const executor = crew.agents.get("Executor");
+const { result } = await executor.forward(
+  { task: "Research AI trends" },
+  { onStream: (chunk) => process.stdout.write(chunk) }
+);
+
+// Track costs across the crew
+console.log(crew.getCrewMetrics());`;
 
 export function CodeDemo() {
   return (
-    <section className="py-section bg-surface border-y border-border">
+    <section className="py-16 md:py-24 bg-surface border-y border-border">
       <div className="max-w-6xl mx-auto px-6">
+        {/* Problem / Solution */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="grid md:grid-cols-2 gap-8 mb-16"
         >
-          <h2 className="text-h1 font-bold text-text-primary mb-4">
-            Simple yet powerful
-          </h2>
-          <p className="text-xl text-text-secondary max-w-2xl mx-auto">
-            Define agents in config, compose them together, and let them collaborate.
-          </p>
+          <div className="p-6 md:p-8 rounded-2xl bg-background border border-border">
+            <h3 className="text-lg font-semibold text-text-primary mb-3">The Problem</h3>
+            <p className="text-text-secondary leading-relaxed">
+              Building multi-agent systems is complex. You need to manage providers, handle state, 
+              coordinate agents, track costs, and wire up tools. That&apos;s a lot of boilerplate before 
+              you can focus on your actual logic.
+            </p>
+          </div>
+          <div className="p-6 md:p-8 rounded-2xl bg-accent-50 border border-accent-200">
+            <h3 className="text-lg font-semibold text-accent-700 mb-3">The Solution</h3>
+            <p className="text-text-secondary leading-relaxed">
+              Define your crew in JSON config. AxCrew handles provider setup, shared state, 
+              agent composition, streaming, MCP connections, and cost tracking. 
+              <span className="text-accent-600 font-medium"> Just config and go.</span>
+            </p>
+          </div>
         </motion.div>
 
         <motion.div
@@ -59,24 +75,24 @@ export function CodeDemo() {
           className="relative"
         >
           {/* Code window chrome */}
-          <div className="bg-text-primary rounded-2xl overflow-hidden shadow-elevated">
+          <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-elevated">
             {/* Window header */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-text-primary/90 border-b border-white/10">
+            <div className="flex items-center gap-2 px-4 py-3 bg-[#2a2a2a] border-b border-white/5">
               <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                <div className="w-3 h-3 rounded-full bg-[#27ca40]" />
               </div>
-              <span className="ml-4 text-sm text-white/50 font-mono">index.ts</span>
+              <span className="ml-4 text-sm text-white/40 font-mono">crew.ts</span>
             </div>
 
             {/* Code content */}
-            <div className="p-6 overflow-x-auto">
-              <pre className="text-sm leading-relaxed">
+            <div className="p-4 md:p-6 overflow-x-auto">
+              <pre className="text-xs md:text-sm leading-relaxed">
                 <code className="language-typescript">
                   {codeExample.split('\n').map((line, i) => (
                     <div key={i} className="table-row">
-                      <span className="table-cell pr-4 text-white/30 text-right select-none w-8">
+                      <span className="table-cell pr-4 text-white/20 text-right select-none w-6 md:w-8">
                         {i + 1}
                       </span>
                       <span className="table-cell">
@@ -88,6 +104,14 @@ export function CodeDemo() {
               </pre>
             </div>
           </div>
+
+          {/* Floating label */}
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-full text-sm text-text-secondary shadow-soft">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              That&apos;s it. Your crew is ready.
+            </span>
+          </div>
         </motion.div>
       </div>
     </section>
@@ -96,16 +120,7 @@ export function CodeDemo() {
 
 // Simple syntax highlighting
 function SyntaxLine({ line }: { line: string }) {
-  // Keywords
-  const keywords = ['const', 'await', 'new'];
-  // Strings
-  const stringPattern = /"[^"]*"|'[^']*'/g;
-  // Comments
-  const commentPattern = /\/\/.*/g;
-  // Properties
-  const propertyPattern = /(\w+):/g;
-
-  let result = line;
+  const keywords = ['const', 'await', 'new', 'import', 'from'];
 
   // Check for comments first
   if (line.includes('//')) {
@@ -113,18 +128,13 @@ function SyntaxLine({ line }: { line: string }) {
     return (
       <>
         <SyntaxLine line={code} />
-        <span className="text-white/40">//{comment}</span>
+        <span className="text-white/30">//{comment}</span>
       </>
     );
   }
 
-  // Apply highlighting
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
   // Simple tokenization
-  const tokens = result.split(/(\s+|[{}[\](),;:.]|"[^"]*"|'[^']*')/);
+  const tokens = line.split(/(\s+|[{}[\](),;:.]|"[^"]*"|'[^']*')/);
   
   return (
     <>
@@ -133,18 +143,18 @@ function SyntaxLine({ line }: { line: string }) {
           return <span key={i} className="text-purple-400">{token}</span>;
         }
         if (token.startsWith('"') || token.startsWith("'")) {
-          return <span key={i} className="text-green-400">{token}</span>;
+          return <span key={i} className="text-emerald-400">{token}</span>;
         }
         if (token === 'true' || token === 'false') {
-          return <span key={i} className="text-orange-400">{token}</span>;
+          return <span key={i} className="text-amber-400">{token}</span>;
         }
         if (/^\d+$/.test(token)) {
-          return <span key={i} className="text-orange-400">{token}</span>;
+          return <span key={i} className="text-amber-400">{token}</span>;
         }
         if (token === 'AxCrew') {
           return <span key={i} className="text-blue-400">{token}</span>;
         }
-        return <span key={i} className="text-white/90">{token}</span>;
+        return <span key={i} className="text-white/80">{token}</span>;
       })}
     </>
   );

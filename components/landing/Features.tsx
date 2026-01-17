@@ -1,82 +1,127 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Settings, Share2, Plug, DollarSign, Zap, Shield } from 'lucide-react';
+import { Settings, Share2, Plug, DollarSign, Zap, Shield, ArrowRight, Github } from 'lucide-react';
 
 const features = [
   {
     icon: Settings,
     title: 'Config-First',
-    description: 'Define your entire agent crew in JSON. No code required to get started.',
+    description: 'Define your entire crew in JSON. No code to get started.',
   },
   {
     icon: Share2,
     title: 'Shared State',
-    description: 'Agents share a key/value state for coordinated actions and data passing.',
+    description: 'Agents share key/value state for coordination.',
   },
   {
     icon: Plug,
     title: 'MCP Support',
-    description: 'Connect to any MCP server. Use STDIO, HTTP SSE, or Streamable HTTP transports.',
+    description: 'STDIO, HTTP SSE, and Streamable HTTP transports.',
   },
   {
     icon: DollarSign,
     title: 'Cost Tracking',
-    description: 'Built-in metrics for token usage and estimated costs per agent and crew.',
+    description: 'Per-agent and crew-level usage metrics.',
   },
   {
     icon: Zap,
     title: 'Streaming',
-    description: 'Real-time token streaming for responsive user experiences.',
+    description: 'Real-time token streaming for responsive UX.',
   },
   {
     icon: Shield,
-    title: 'Type Safe',
-    description: 'Full TypeScript support with comprehensive type definitions.',
+    title: 'TypeScript',
+    description: 'Full type safety with comprehensive definitions.',
   },
 ];
 
 export function Features() {
   return (
-    <section className="py-section bg-background">
+    <section className="py-16 md:py-24 bg-background">
       <div className="max-w-6xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          className="text-center mb-12"
         >
-          <h2 className="text-h1 font-bold text-text-primary mb-4">
-            Everything you need
+          <h2 className="text-h2 md:text-h1 font-bold text-text-primary mb-4">
+            Why AxCrew
           </h2>
-          <p className="text-xl text-text-secondary max-w-2xl mx-auto">
-            Build sophisticated multi-agent systems with a simple, powerful API.
+          <p className="text-lg text-text-secondary max-w-xl mx-auto">
+            Everything you need to build multi-agent systems, nothing you don&apos;t.
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group p-8 bg-surface border border-border rounded-2xl transition-all hover:shadow-card hover:border-accent-200"
+              transition={{ duration: 0.4, delay: index * 0.05 }}
+              className="group p-6 bg-surface border border-border rounded-xl transition-all hover:shadow-card hover:border-accent-200"
             >
-              <div className="w-12 h-12 bg-accent-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-accent-100 transition-colors">
-                <feature.icon className="w-6 h-6 text-accent-600" />
+              <div className="w-10 h-10 bg-accent-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent-100 transition-colors">
+                <feature.icon className="w-5 h-5 text-accent-600" />
               </div>
-              <h3 className="text-h3 font-semibold text-text-primary mb-3">
+              <h3 className="text-lg font-semibold text-text-primary mb-2">
                 {feature.title}
               </h3>
-              <p className="text-body text-text-secondary leading-relaxed">
+              <p className="text-sm text-text-secondary leading-relaxed">
                 {feature.description}
               </p>
             </motion.div>
           ))}
         </div>
+
+        {/* Bottom CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center py-12 border-t border-border"
+        >
+          <p className="text-text-secondary mb-6">
+            Ready to build your agent crew?
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/docs"
+              className="group inline-flex items-center gap-2 px-6 py-3 bg-text-primary text-background rounded-lg font-medium transition-all hover:bg-text-primary/90 hover:shadow-card"
+            >
+              Read the Docs
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <a
+              href="https://github.com/amitdeshmukh/ax-crew"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 border border-border rounded-lg font-medium text-text-primary transition-all hover:border-text-secondary"
+            >
+              <Github className="w-4 h-4" />
+              View Source
+            </a>
+          </div>
+          
+          {/* Copyright */}
+          <p className="mt-12 text-sm text-text-secondary/60">
+            © {new Date().getFullYear()} Amit Deshmukh · Powered by{' '}
+            <a 
+              href="https://axllm.dev" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-accent-500 hover:text-accent-600 transition-colors"
+            >
+              AxLLM
+            </a>
+          </p>
+        </motion.div>
       </div>
     </section>
   );

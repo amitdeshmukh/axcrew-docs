@@ -6,7 +6,7 @@ import { ArrowRight, Github } from 'lucide-react';
 
 export function Hero() {
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-accent-50/30 via-background to-background" />
       
@@ -24,27 +24,87 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-50 border border-accent-200 text-accent-700 text-sm font-medium mb-8">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-500" />
-            </span>
-            Powered by AxLLM
+          {/* Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+            <a
+              href="https://www.npmjs.com/package/@amitdeshmukh/ax-crew"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img 
+                src="https://img.shields.io/npm/v/@amitdeshmukh/ax-crew.svg?style=flat-square&color=6366f1" 
+                alt="npm version"
+                className="h-5"
+              />
+            </a>
+            <a
+              href="https://www.npmjs.com/package/@amitdeshmukh/ax-crew"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img 
+                src="https://img.shields.io/npm/dm/@amitdeshmukh/ax-crew.svg?style=flat-square&color=6366f1" 
+                alt="npm downloads"
+                className="h-5"
+              />
+            </a>
+            <a
+              href="https://github.com/amitdeshmukh/ax-crew"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img 
+                src="https://img.shields.io/github/stars/amitdeshmukh/ax-crew?style=flat-square&color=6366f1" 
+                alt="GitHub stars"
+                className="h-5"
+              />
+            </a>
+            <a
+              href="https://twitter.com/amitdeshmukh"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img 
+                src="https://img.shields.io/twitter/follow/amitdeshmukh?style=flat-square&color=6366f1" 
+                alt="Twitter follow"
+                className="h-5"
+              />
+            </a>
           </div>
 
           {/* Headline */}
           <h1 className="text-hero font-bold text-text-primary mb-6 leading-tight">
-            Build AI Agent Teams
+            Multi-Agent AI
             <br />
-            <span className="text-accent">with JSON</span>
+            <span className="text-accent">with JSON Config</span>
           </h1>
 
-          {/* Subtext */}
-          <p className="text-xl text-text-secondary max-w-2xl mx-auto mb-10 leading-relaxed">
-            A no-code framework for building and managing crews of AI agents.
-            Define agents in config, share state, connect to MCP servers, and track costs.
+          {/* Value proposition */}
+          <p className="text-xl text-text-secondary max-w-2xl mx-auto mb-4 leading-relaxed">
+            Define agent crews in config. Share state. Connect MCP servers. Track costs.
+            <br />
+            <span className="text-text-primary font-medium">No boilerplate. Production-ready.</span>
           </p>
+
+          {/* Key features inline */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-text-secondary mb-10">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
+              15+ LLM Providers
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
+              Streaming
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
+              MCP Support
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
+              TypeScript
+            </span>
+          </div>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -62,7 +122,7 @@ export function Hero() {
               className="inline-flex items-center gap-2 px-8 py-4 bg-surface border border-border rounded-xl font-medium text-lg text-text-primary transition-all hover:border-text-secondary hover:shadow-card"
             >
               <Github className="w-5 h-5" />
-              View on GitHub
+              GitHub
             </a>
           </div>
         </motion.div>
@@ -72,14 +132,14 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-16"
+          className="mt-12"
         >
           <div className="inline-flex items-center gap-3 px-6 py-3 bg-surface border border-border rounded-xl shadow-soft">
             <code className="font-mono text-sm text-text-secondary">
-              npm install <span className="text-text-primary font-medium">@amitdeshmukh/ax-crew</span>
+              npm install <span className="text-text-primary font-medium">@amitdeshmukh/ax-crew @ax-llm/ax</span>
             </code>
             <button
-              onClick={() => navigator.clipboard.writeText('npm install @amitdeshmukh/ax-crew')}
+              onClick={() => navigator.clipboard.writeText('npm install @amitdeshmukh/ax-crew @ax-llm/ax')}
               className="p-1.5 rounded-md hover:bg-code-bg transition-colors"
               aria-label="Copy to clipboard"
             >
