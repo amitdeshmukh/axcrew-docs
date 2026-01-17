@@ -9,31 +9,37 @@ const features = [
     icon: Settings,
     title: 'Config-First',
     description: 'Define your entire crew in JSON. No code to get started.',
+    href: '/docs/core-concepts/crew-configuration/',
   },
   {
     icon: Share2,
     title: 'Shared State',
     description: 'Agents share key/value state for coordination.',
+    href: '/docs/core-concepts/state-management/',
   },
   {
     icon: Plug,
     title: 'MCP Support',
     description: 'STDIO, HTTP SSE, and Streamable HTTP transports.',
+    href: '/docs/advanced-features/mcp-integration/',
   },
   {
     icon: DollarSign,
     title: 'Cost Tracking',
     description: 'Per-agent and crew-level usage metrics.',
+    href: '/docs/advanced-features/cost-tracking/',
   },
   {
     icon: Zap,
     title: 'Streaming',
     description: 'Real-time token streaming for responsive UX.',
+    href: '/docs/advanced-features/streaming-responses/',
   },
   {
     icon: Shield,
     title: 'TypeScript',
     description: 'Full type safety with comprehensive definitions.',
+    href: '/docs/reference/types/',
   },
 ];
 
@@ -64,17 +70,21 @@ export function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: index * 0.05 }}
-              className="group p-6 bg-surface border border-border rounded-xl transition-all hover:shadow-card hover:border-accent-200"
             >
-              <div className="w-10 h-10 bg-accent-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent-100 transition-colors">
-                <feature.icon className="w-5 h-5 text-accent-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {feature.description}
-              </p>
+              <Link
+                href={feature.href}
+                className="group block p-6 bg-surface border border-border rounded-xl transition-all hover:shadow-card hover:border-accent-200"
+              >
+                <div className="w-10 h-10 bg-accent-50 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent-100 transition-colors">
+                  <feature.icon className="w-5 h-5 text-accent-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  {feature.description}
+                </p>
+              </Link>
             </motion.div>
           ))}
         </div>
