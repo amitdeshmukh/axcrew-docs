@@ -75,27 +75,39 @@ export function CodeDemo() {
           className="relative"
         >
           {/* Code window chrome */}
-          <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-elevated">
+          <div className="code-demo-window rounded-2xl overflow-hidden shadow-elevated">
             {/* Window header */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-[#2a2a2a] border-b border-white/5">
+            <div 
+              className="flex items-center gap-2 px-4 py-3"
+              style={{ backgroundColor: '#2d2d2d', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+            >
               <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
-                <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
-                <div className="w-3 h-3 rounded-full bg-[#27ca40]" />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ff5f56' }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ffbd2e' }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#27ca40' }} />
               </div>
-              <span className="ml-4 text-sm text-white/40 font-mono">crew.ts</span>
+              <span className="ml-4 text-sm font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>crew.ts</span>
             </div>
 
             {/* Code content */}
             <div className="p-4 md:p-6 overflow-x-auto">
-              <pre className="text-xs md:text-sm leading-relaxed">
-                <code className="language-typescript">
+              <pre className="text-xs md:text-sm leading-relaxed" style={{ margin: 0, background: 'transparent' }}>
+                <code>
                   {codeExample.split('\n').map((line, i) => (
-                    <div key={i} className="table-row">
-                      <span className="table-cell pr-4 text-white/20 text-right select-none w-6 md:w-8">
+                    <div key={i} style={{ display: 'table-row' }}>
+                      <span 
+                        style={{ 
+                          display: 'table-cell', 
+                          paddingRight: '1rem', 
+                          textAlign: 'right', 
+                          userSelect: 'none',
+                          color: 'rgba(255,255,255,0.3)',
+                          width: '2rem'
+                        }}
+                      >
                         {i + 1}
                       </span>
-                      <span className="table-cell">
+                      <span style={{ display: 'table-cell' }}>
                         <SyntaxLine line={line} />
                       </span>
                     </div>
@@ -118,7 +130,7 @@ export function CodeDemo() {
   );
 }
 
-// Simple syntax highlighting
+// Simple syntax highlighting with inline styles
 function SyntaxLine({ line }: { line: string }) {
   const keywords = ['const', 'await', 'new', 'import', 'from'];
 
@@ -128,7 +140,7 @@ function SyntaxLine({ line }: { line: string }) {
     return (
       <>
         <SyntaxLine line={code} />
-        <span className="text-white/30">//{comment}</span>
+        <span style={{ color: '#6A9955' }}>//{comment}</span>
       </>
     );
   }
@@ -140,21 +152,21 @@ function SyntaxLine({ line }: { line: string }) {
     <>
       {tokens.map((token, i) => {
         if (keywords.includes(token)) {
-          return <span key={i} className="text-purple-400">{token}</span>;
+          return <span key={i} style={{ color: '#C586C0' }}>{token}</span>;
         }
         if (token.startsWith('"') || token.startsWith("'")) {
-          return <span key={i} className="text-emerald-400">{token}</span>;
+          return <span key={i} style={{ color: '#CE9178' }}>{token}</span>;
         }
         if (token === 'true' || token === 'false') {
-          return <span key={i} className="text-amber-400">{token}</span>;
+          return <span key={i} style={{ color: '#569CD6' }}>{token}</span>;
         }
         if (/^\d+$/.test(token)) {
-          return <span key={i} className="text-amber-400">{token}</span>;
+          return <span key={i} style={{ color: '#B5CEA8' }}>{token}</span>;
         }
         if (token === 'AxCrew') {
-          return <span key={i} className="text-blue-400">{token}</span>;
+          return <span key={i} style={{ color: '#4EC9B0' }}>{token}</span>;
         }
-        return <span key={i} className="text-white/80">{token}</span>;
+        return <span key={i} style={{ color: '#D4D4D4' }}>{token}</span>;
       })}
     </>
   );
