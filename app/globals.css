@@ -2,50 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Premium light theme */
+/* Premium light theme - using HSL values for Fumadocs compatibility */
 :root {
-  --background: #FAFAFA;
-  --foreground: #0A0A0A;
-  --surface: #FFFFFF;
-  --text-primary: #0A0A0A;
-  --text-secondary: #6B7280;
-  --accent: #6366F1;
-  --accent-50: #EEF2FF;
-  --accent-100: #E0E7FF;
-  --accent-200: #C7D2FE;
-  --accent-300: #A5B4FC;
-  --accent-400: #818CF8;
-  --accent-500: #6366F1;
-  --accent-600: #4F46E5;
-  --accent-700: #4338CA;
-  --accent-800: #3730A3;
-  --accent-900: #312E81;
-  --border: #E5E7EB;
-  --code-bg: #F3F4F6;
-  --muted-foreground: #6B7280;
+  --background: 0 0% 98%;
+  --foreground: 0 0% 4%;
+  --surface: 0 0% 100%;
+  --text-primary: 0 0% 4%;
+  --text-secondary: 220 9% 46%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 220 9% 46%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --border: 220 13% 91%;
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --accent: 239 84% 67%;
+  --accent-foreground: 0 0% 100%;
+  --accent-50: 226 100% 97%;
+  --accent-100: 226 100% 94%;
+  --accent-200: 228 96% 89%;
+  --accent-300: 230 94% 82%;
+  --accent-400: 234 89% 74%;
+  --accent-500: 239 84% 67%;
+  --accent-600: 243 75% 59%;
+  --accent-700: 245 58% 51%;
+  --accent-800: 244 55% 41%;
+  --accent-900: 242 47% 34%;
+  --ring: 239 84% 67%;
+  --code-bg: 220 14% 96%;
 }
 
 /* Premium dark theme */
 .dark {
-  --background: #0A0A0A;
-  --foreground: #FAFAFA;
-  --surface: #171717;
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --accent: #818CF8;
-  --accent-50: #1e1b4b;
-  --accent-100: #312E81;
-  --accent-200: #3730A3;
-  --accent-300: #4338CA;
-  --accent-400: #4F46E5;
-  --accent-500: #6366F1;
-  --accent-600: #818CF8;
-  --accent-700: #A5B4FC;
-  --accent-800: #C7D2FE;
-  --accent-900: #E0E7FF;
-  --border: #27272A;
-  --code-bg: #1C1C1E;
-  --muted-foreground: #A1A1AA;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 98%;
+  --surface: 0 0% 9%;
+  --text-primary: 0 0% 98%;
+  --text-secondary: 240 5% 65%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 240 5% 65%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 98%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 4% 16%;
+  --primary: 234 89% 74%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 234 89% 74%;
+  --accent-foreground: 0 0% 9%;
+  --accent-50: 244 47% 20%;
+  --accent-100: 242 47% 34%;
+  --accent-200: 244 55% 41%;
+  --accent-300: 245 58% 51%;
+  --accent-400: 243 75% 59%;
+  --accent-500: 239 84% 67%;
+  --accent-600: 234 89% 74%;
+  --accent-700: 230 94% 82%;
+  --accent-800: 228 96% 89%;
+  --accent-900: 226 100% 94%;
+  --ring: 234 89% 74%;
+  --code-bg: 0 0% 11%;
 }
 
 /* Premium scrollbar styling */
@@ -59,12 +81,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: hsl(var(--muted-foreground));
 }
 
 /* Smooth scroll behavior */
@@ -74,15 +96,15 @@ html {
 
 /* Premium selection styling */
 ::selection {
-  background: var(--accent-200);
-  color: var(--text-primary);
+  background: hsl(var(--accent-200));
+  color: hsl(var(--foreground));
 }
 
 /* Code block styling */
 pre {
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--code-bg) !important;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--code-bg)) !important;
 }
 
 code {

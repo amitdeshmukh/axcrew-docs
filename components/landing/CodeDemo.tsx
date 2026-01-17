@@ -39,7 +39,7 @@ console.log(crew.getCrewMetrics());`;
 
 export function CodeDemo() {
   return (
-    <section className="py-16 md:py-24 bg-white dark:bg-neutral-900 border-y border-gray-200 dark:border-gray-800">
+    <section className="py-16 md:py-24 bg-surface border-y border-border">
       <div className="max-w-6xl mx-auto px-6">
         {/* Problem / Solution */}
         <motion.div
@@ -49,20 +49,20 @@ export function CodeDemo() {
           transition={{ duration: 0.6 }}
           className="grid md:grid-cols-2 gap-8 mb-16"
         >
-          <div className="p-6 md:p-8 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">The Problem</h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+          <div className="p-6 md:p-8 rounded-2xl bg-background border border-border">
+            <h3 className="text-lg font-semibold text-text-primary mb-3">The Problem</h3>
+            <p className="text-text-secondary leading-relaxed">
               Building multi-agent systems is complex. You need to manage providers, handle state, 
               coordinate agents, track costs, and wire up tools. That&apos;s a lot of boilerplate before 
               you can focus on your actual logic.
             </p>
           </div>
-          <div className="p-6 md:p-8 rounded-2xl bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800">
-            <h3 className="text-lg font-semibold text-indigo-700 dark:text-indigo-300 mb-3">The Solution</h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+          <div className="p-6 md:p-8 rounded-2xl bg-accent-50 border border-accent-200">
+            <h3 className="text-lg font-semibold text-accent-700 mb-3">The Solution</h3>
+            <p className="text-text-secondary leading-relaxed">
               Define your crew in JSON config. AxCrew handles provider setup, shared state, 
               agent composition, streaming, MCP connections, and cost tracking. 
-              <span className="text-indigo-600 dark:text-indigo-400 font-medium"> Just config and go.</span>
+              <span className="text-accent-600 font-medium"> Just config and go.</span>
             </p>
           </div>
         </motion.div>
@@ -107,7 +107,7 @@ export function CodeDemo() {
 
           {/* Floating label */}
           <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-300 shadow-md">
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-full text-sm text-text-secondary shadow-soft">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               That&apos;s it. Your crew is ready.
             </span>
