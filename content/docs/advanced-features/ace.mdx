@@ -1,0 +1,208 @@
+---
+title: ACE (Agentic Context Engineering)
+description: Enable agents to learn and improve from human feedback using ACE
+---
+
+AxCrew integrates [Agentic Context Engineering (ACE)](https://www.youtube.com/watch?v=elgYgPo_vY4) from the Ax framework, enabling agents to learn and improve from human feedback. ACE maintains a "playbook" of learned rules that guide agent behavior, which can be persisted across sessions.
+
+## Key Features
+
+- **Online Learning**: Agents learn from real-time feedback during conversations
+- **Playbook Persistence**: Save learned rules to JSON files or custom storage
+- **Teacher/Student Model**: Use a separate "teacher" LLM to distill feedback into actionable rules
+- **Feedback Routing**: Distribute feedback across agent dependency chains automatically
+
+## Configuration
+
+Add the `ace` field to any agent configuration:
+
+```typescript
+{
+  name: "SupportAgent",
+  description: "Customer support agent",
+  signature: "ticket:string -> supportResponse:string, decision:string",
+  provider: "google-gemini",
+  providerKeyName: "GEMINI_API_KEY",
+  ai: { model: "gemini-flash-latest", temperature: 0.7 },
+  ace: {
+    teacher: {
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-flash-latest" }
+    },
+    options: {
+      maxEpochs: 1,
+      allowDynamicSections: true
+    },
+    persistence: {
+      playbookPath: "playbooks/support-agent.json",
+      autoPersist: true
+    },
+    metric: {
+      primaryOutputField: "supportResponse"
+    }
+  }
+}
+```
+
+## ACE Configuration Options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `teacher` | object | Teacher model config (provider, model, apiURL) |
+| `teacher.provider` | string | AI provider for the teacher model |
+| `teacher.providerKeyName` | string | Environment variable for teacher API key |
+| `teacher.ai` | object | Model configuration for teacher |
+| `persistence.playbookPath` | string | File path to save/load playbook |
+| `persistence.autoPersist` | boolean | Auto-save playbook after updates |
+| `persistence.onPersist` | function | Custom callback for saving playbook |
+| `persistence.onLoad` | function | Custom callback for loading playbook |
+| `options.maxEpochs` | number | Training epochs for offline compile |
+| `options.allowDynamicSections` | boolean | Allow playbook to create new sections |
+| `metric.primaryOutputField` | string | Output field to evaluate for quality |
+| `compileOnStart` | boolean | Run offline compile on agent init |
+
+## Usage: Applying Feedback
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAgentsToCrew(['SupportAgent']);
+
+const agent = crew.agents.get('SupportAgent');
+
+// Run the agent
+const result = await agent.forward({ 
+  ticket: "Customer wants refund after 45 days" 
+});
+const taskId = result._taskId;
+
+// Apply feedback to teach the agent
+await crew.applyTaskFeedback({
+  taskId,
+  feedback: "For loyal customers (5+ years), extend return window to 60 days",
+  strategy: "all"  // Apply to all agents involved in this task
+});
+
+// View the learned playbook
+const playbook = agent.getPlaybook?.();
+console.log(playbook);
+```
+
+## Feedback Strategies
+
+| Strategy | Description |
+|----------|-------------|
+| `"all"` | Apply feedback to all agents involved in the task |
+| `"primary"` | Apply only to the primary (entry) agent |
+| `"leaf"` | Apply only to leaf agents (no sub-agents) |
+
+## Playbook Persistence
+
+### File-based Persistence
+
+The simplest approach - save playbooks to JSON files:
+
+```typescript
+{
+  ace: {
+    persistence: {
+      playbookPath: "playbooks/my-agent.json",
+      autoPersist: true
+    }
+  }
+}
+```
+
+### Custom Persistence
+
+For databases or cloud storage:
+
+```typescript
+{
+  ace: {
+    persistence: {
+      onPersist: async (playbook) => {
+        await database.save('agent-playbook', playbook);
+      },
+      onLoad: async () => {
+        return await database.get('agent-playbook');
+      }
+    }
+  }
+}
+```
+
+## Example: Customer Support with Learning
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const config = {
+  crew: [{
+    name: "SupportAgent",
+    description: "Handles customer support tickets with learning",
+    signature: "ticket:string -> response:string, action:string",
+    provider: "openai",
+    providerKeyName: "OPENAI_API_KEY",
+    ai: { model: "gpt-4", temperature: 0.7 },
+    ace: {
+      teacher: {
+        provider: "openai",
+        providerKeyName: "OPENAI_API_KEY",
+        ai: { model: "gpt-4" }
+      },
+      persistence: {
+        playbookPath: "playbooks/support.json",
+        autoPersist: true
+      },
+      options: {
+        allowDynamicSections: true
+      }
+    }
+  }]
+};
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAllAgents();
+
+const agent = crew.agents.get('SupportAgent');
+
+// Handle a ticket
+const result = await agent.forward({
+  ticket: "I ordered a laptop 3 days ago but it hasn't shipped yet"
+});
+
+console.log("Response:", result.response);
+console.log("Action:", result.action);
+
+// Supervisor provides feedback
+await crew.applyTaskFeedback({
+  taskId: result._taskId,
+  feedback: "Always check if customer is a Prime member and offer expedited shipping",
+  strategy: "primary"
+});
+
+// Future tickets will benefit from this learned rule
+```
+
+## Best Practices
+
+1. **Start with a teacher model**: Use a capable model (GPT-4, Claude 3) as the teacher
+2. **Enable autoPersist**: Don't lose learned rules between sessions
+3. **Use specific feedback**: "For X situation, do Y" is better than "be better"
+4. **Monitor playbook size**: Large playbooks may affect performance
+5. **Test learned behaviors**: Verify the agent applies learned rules correctly
+
+## Examples
+
+See the complete examples in the repository:
+
+- [`ace-customer-support.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/ace-customer-support.ts) - Learn edge-case handling
+- [`ace-flight-finder.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/ace-flight-finder.ts) - Flight assistant with preference learning
+
+```bash
+# Run the customer support demo
+npx tsx examples/ace-customer-support.ts
+```

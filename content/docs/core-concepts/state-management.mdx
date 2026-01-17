@@ -1,0 +1,185 @@
+---
+title: State Management
+description: Learn how to use shared state across agents in your AxCrew
+---
+
+## Understanding State in AxCrew
+
+AxCrew provides a state management system that allows sharing data between agents and functions in your crew. The state system is accessible through the `state` property available on both the `AxCrew` instance and individual agents.
+
+Key features of the state management system:
+- **Shared State**: All agents in a crew share the same state instance
+- **Type Safety**: State values are typed with TypeScript
+- **Persistence**: State persists across agent interactions
+- **Function Access**: Functions can access and modify the shared state
+
+## Accessing State
+
+### Crew-level State Access
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew(config);
+
+// Set state values
+crew.state.set('name', 'Crew1');
+crew.state.set('location', 'Earth');
+
+// Get state values
+const name = crew.state.get('name');  // 'Crew1'
+const location = crew.state.get('location');  // 'Earth'
+
+// Get all state values
+const allState = crew.state.getAll();  // { name: 'Crew1', location: 'Earth' }
+```
+
+### Agent-level State Access
+
+Individual agents also have access to the same shared state:
+
+```typescript
+await crew.addAllAgents();
+
+const planner = crew.agents.get('Planner');
+const manager = crew.agents.get('Manager');
+
+// Set state from Planner agent
+planner.state.set('plan', 'Fly to Mars');
+
+// Access the same state value from Manager agent
+const plan = manager.state.get('plan');  // 'Fly to Mars'
+```
+
+## State in Functions
+
+State can be shared with functions expressed as classes in the `FunctionRegistry`:
+
+```typescript
+import type { AxFunction } from '@ax-llm/ax';
+import type { FunctionRegistryType, StateInstance } from '@amitdeshmukh/ax-crew';
+
+class DataStore {
+  constructor(private state: StateInstance) {}
+  
+  toFunction(): AxFunction {
+    return {
+      name: 'SaveData',
+      description: 'Save data to the shared state',
+      parameters: {
+        type: 'object',
+        properties: {
+          key: { type: 'string', description: 'State key' },
+          value: { type: 'string', description: 'Value to store' }
+        },
+        required: ['key', 'value']
+      },
+      func: async ({ key, value }) => {
+        // Save to state
+        this.state.set(key, value);
+        
+        // Track last update
+        this.state.set('lastUpdate', { key, timestamp: new Date().toISOString() });
+        
+        return { success: true, message: `Saved ${key}` };
+      }
+    };
+  }
+}
+
+const myFunctions: FunctionRegistryType = {
+  SaveData: DataStore
+};
+
+const crew = new AxCrew(config, myFunctions);
+```
+
+## Complex State Management
+
+For more complex data, you can store objects, arrays, and nested structures:
+
+```typescript
+// Store a complex object
+crew.state.set('user', {
+  id: 123,
+  name: 'Jane Doe',
+  preferences: {
+    theme: 'dark',
+    notifications: true
+  },
+  history: [
+    { action: 'login', timestamp: '2023-01-01T12:00:00Z' },
+    { action: 'search', timestamp: '2023-01-01T12:05:00Z' }
+  ]
+});
+
+// Retrieve the object
+const user = crew.state.get('user');
+console.log(user.preferences.theme);  // 'dark'
+```
+
+## State Updates Across Agent Calls
+
+State persists across multiple agent calls, enabling complex workflows:
+
+```typescript
+// Step 1: Planner stores the plan
+const planResponse = await planner.forward({ task: userQuery });
+planner.state.set('currentPlan', planResponse.plan);
+
+// Step 2: Calculator stores results
+const calcResponse = await calculator.forward({ equation: '2+2' });
+calculator.state.set('calculationResult', calcResponse.result);
+
+// Step 3: Manager accesses both values
+const currentPlan = manager.state.get('currentPlan');
+const calculationResult = manager.state.get('calculationResult');
+
+const managerResponse = await manager.forward({ 
+  question: userQuery,
+  plan: currentPlan,
+  calculationResult: calculationResult
+});
+```
+
+## Best Practices
+
+1. **Consistent Keys**: Use consistent naming conventions for state keys
+2. **Documentation**: Document what state values are expected/used by each agent
+3. **Default Values**: Always check if a state value exists before using it
+4. **Cleanup**: Clear unnecessary state values when they're no longer needed
+5. **Scoping**: Use prefixes for state keys to avoid collisions (e.g., `user.id`, `session.token`)
+6. **Type Safety**: Use TypeScript to ensure type safety when accessing state values
+
+## Example Workflow with State
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAgentsToCrew(['ProfileAgent', 'SupportAgent']);
+
+const profileAgent = crew.agents.get('ProfileAgent');
+const supportAgent = crew.agents.get('SupportAgent');
+
+// Initialize workflow with user context
+crew.state.set('user.id', 'user_12345');
+crew.state.set('session.started', new Date().toISOString());
+
+// Step 1: Retrieve user profile
+const profileResponse = await profileAgent.forward({ action: 'getUserProfile' });
+crew.state.set('user.profile', profileResponse.profile);
+
+// Step 2: Generate support response using profile from state
+const supportResponse = await supportAgent.forward({
+  action: 'generateResponse',
+  query: "I need help with my order"
+  // Profile is accessed from state, not passed explicitly
+});
+
+// Store response and complete session
+crew.state.set('session.response', supportResponse.message);
+crew.state.set('session.completed', new Date().toISOString());
+
+console.log(`Response: ${crew.state.get('session.response')}`);
+```

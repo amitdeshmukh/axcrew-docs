@@ -1,0 +1,78 @@
+---
+title: Introduction
+description: A no-code framework for building and managing crews of AI agents with AxLLM
+---
+
+# AxCrew Documentation
+
+AxCrew is a framework for building and managing **crews of AI agents**. It is built on top of [AxLLM](https://axllm.dev), a powerful TypeScript framework for building and managing LLM agents.
+
+## Key Features
+
+<Cards>
+  <Card title="Config-First" href="/docs/getting-started">
+    Define your agent crews using simple JSON configuration files.
+  </Card>
+  <Card title="Shared State" href="/docs/core-concepts/state-management">
+    Share state across agents in a crew for coordinated actions.
+  </Card>
+  <Card title="MCP Support" href="/docs/advanced-features/mcp-integration">
+    Let your agents interact with external systems using any published MCP server.
+  </Card>
+  <Card title="Cost Tracking" href="/docs/advanced-features/cost-tracking">
+    Monitor API usage costs across individual agents and entire crews.
+  </Card>
+</Cards>
+
+## Quick Start
+
+```bash
+npm install @amitdeshmukh/ax-crew @ax-llm/ax
+```
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+
+const config = {
+  crew: [{
+    name: "Planner",
+    description: "Creates a plan to complete a task",
+    signature: "task:string -> plan:string",
+    provider: "openai",
+    providerKeyName: "OPENAI_API_KEY",
+    ai: { model: "gpt-4", temperature: 0 }
+  }]
+};
+
+const crew = new AxCrew(config);
+await crew.addAllAgents();
+
+const planner = crew.agents.get("Planner");
+const { plan } = await planner.forward({ task: "Build a website" });
+```
+
+## Why AxCrew?
+
+- **Config-first crews**: Declare agents once; instantiate on demand
+- **Shared state**: Simple key/value state all agents can read/write
+- **Sub-agents and tools**: Compose agents and functions cleanly
+- **Streaming**: Real-time token streaming for responsive UX
+- **MCP**: Connect agents to MCP servers (STDIO, HTTP SSE, Streamable HTTP)
+- **Metrics & costs**: Per-agent and crew snapshots, with estimated USD
+
+## Getting Started
+
+<Cards>
+  <Card title="Installation Guide" href="/docs/getting-started">
+    Learn how to install and set up AxCrew in your project.
+  </Card>
+  <Card title="Agent Configuration" href="/docs/core-concepts/agent-configuration">
+    Understand how to configure agents for your crew.
+  </Card>
+  <Card title="Creating Functions" href="/docs/core-concepts/creating-functions">
+    Build custom functions to extend your agents' capabilities.
+  </Card>
+  <Card title="API Reference" href="/docs/reference/axcrew-class">
+    Explore the complete API reference documentation.
+  </Card>
+</Cards>

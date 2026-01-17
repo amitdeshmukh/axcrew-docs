@@ -1,0 +1,199 @@
+---
+title: AxCrew Class
+description: API reference for the AxCrew class
+---
+
+The `AxCrew` class is the main entry point for creating and managing a crew of AI agents.
+
+## Constructor
+
+```typescript
+constructor(
+  configInput: CrewConfigInput, 
+  functions?: FunctionRegistryType,
+  state?: StateInstance,
+  options?: AxCrewOptions
+)
+```
+
+Creates a new AxCrew instance.
+
+**Parameters:**
+- `configInput` - A configuration object with a `crew` array
+- `functions` - Optional. A registry of functions that agents can use
+- `state` - Optional. A custom state instance
+- `options` - Optional. Additional options including telemetry configuration
+
+**Examples:**
+
+```typescript
+// Using a configuration object
+const crew = new AxCrew({
+  crew: [
+    {
+      name: "Planner",
+      description: "Creates a plan",
+      signature: "task:string -> plan:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4", temperature: 0 }
+    }
+  ]
+});
+
+// With functions
+import { AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+const crew = new AxCrew(config, AxCrewFunctions);
+
+// With telemetry
+const crew = new AxCrew(config, AxCrewFunctions, undefined, {
+  telemetry: { tracer, meter }
+});
+```
+
+## Properties
+
+### state
+
+```typescript
+state: StateInstance
+```
+
+A shared state instance accessible by all agents in the crew.
+
+```typescript
+crew.state.set('key', 'value');
+const value = crew.state.get('key');
+const allState = crew.state.getAll();
+```
+
+### agents
+
+```typescript
+agents: Map<string, StatefulAxAgent>
+```
+
+A map of all initialized agents in the crew, keyed by agent name.
+
+```typescript
+const planner = crew.agents.get('Planner');
+
+if (crew.agents.has('Calculator')) {
+  // Use Calculator agent
+}
+```
+
+## Methods
+
+### addAgent
+
+```typescript
+async addAgent(agentName: string): Promise<StatefulAxAgent | undefined>
+```
+
+Adds a single agent to the crew by name.
+
+<Callout type="warning">
+This method requires you to handle dependencies manually. You must add any agents that this agent depends on before calling this method.
+</Callout>
+
+```typescript
+const calculator = await crew.addAgent('Calculator');
+```
+
+### addAgentsToCrew
+
+```typescript
+async addAgentsToCrew(agentNames: string[]): Promise<Map<string, StatefulAxAgent> | undefined>
+```
+
+Adds multiple agents to the crew, automatically handling dependencies.
+
+```typescript
+const agents = await crew.addAgentsToCrew(['Manager', 'Planner']);
+```
+
+### addAllAgents
+
+```typescript
+async addAllAgents(): Promise<Map<string, StatefulAxAgent> | undefined>
+```
+
+Adds all agents defined in the configuration, automatically handling dependencies.
+
+```typescript
+const agents = await crew.addAllAgents();
+```
+
+### getAggregatedCosts
+
+```typescript
+getAggregatedCosts(): AggregatedCosts
+```
+
+Gets the aggregated costs for all agents in the crew.
+
+```typescript
+const costs = crew.getAggregatedCosts();
+console.log(`Total cost: $${costs.totalCost}`);
+console.log(`Total tokens: ${costs.aggregatedMetrics.totalTokens}`);
+```
+
+### getCrewMetrics
+
+```typescript
+getCrewMetrics(): MetricsSnapshot
+```
+
+Gets the metrics snapshot for the entire crew.
+
+```typescript
+const metrics = crew.getCrewMetrics();
+console.log(metrics);
+```
+
+### resetCosts
+
+```typescript
+resetCosts(): void
+```
+
+Resets the cost tracking for all agents in the crew.
+
+```typescript
+crew.resetCosts();
+```
+
+### applyTaskFeedback
+
+```typescript
+async applyTaskFeedback(options: {
+  taskId: string;
+  feedback: string;
+  strategy: 'all' | 'primary' | 'leaf';
+}): Promise<void>
+```
+
+Applies feedback to agents for ACE learning.
+
+```typescript
+await crew.applyTaskFeedback({
+  taskId: result._taskId,
+  feedback: "Be more concise in responses",
+  strategy: "all"
+});
+```
+
+## Static Methods
+
+### registerMCPServer
+
+```typescript
+static registerMCPServer(name: string, server: MCPServer): void
+```
+
+Registers a custom MCP server for use with agents.
+
+```typescript
+AxCrew.registerMCPServer('custom-api', customServer);
+```

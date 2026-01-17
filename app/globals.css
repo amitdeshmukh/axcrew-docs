@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Premium light theme */
+:root {
+  --background: #FAFAFA;
+  --foreground: #0A0A0A;
+  --surface: #FFFFFF;
+  --text-primary: #0A0A0A;
+  --text-secondary: #6B7280;
+  --accent: #6366F1;
+  --accent-50: #EEF2FF;
+  --accent-100: #E0E7FF;
+  --accent-200: #C7D2FE;
+  --accent-300: #A5B4FC;
+  --accent-400: #818CF8;
+  --accent-500: #6366F1;
+  --accent-600: #4F46E5;
+  --accent-700: #4338CA;
+  --accent-800: #3730A3;
+  --accent-900: #312E81;
+  --border: #E5E7EB;
+  --code-bg: #F3F4F6;
+  --muted-foreground: #6B7280;
+}
+
+/* Premium dark theme */
+.dark {
+  --background: #0A0A0A;
+  --foreground: #FAFAFA;
+  --surface: #171717;
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --accent: #818CF8;
+  --accent-50: #1e1b4b;
+  --accent-100: #312E81;
+  --accent-200: #3730A3;
+  --accent-300: #4338CA;
+  --accent-400: #4F46E5;
+  --accent-500: #6366F1;
+  --accent-600: #818CF8;
+  --accent-700: #A5B4FC;
+  --accent-800: #C7D2FE;
+  --accent-900: #E0E7FF;
+  --border: #27272A;
+  --code-bg: #1C1C1E;
+  --muted-foreground: #A1A1AA;
+}
+
+/* Premium scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Premium selection styling */
+::selection {
+  background: var(--accent-200);
+  color: var(--text-primary);
+}
+
+/* Code block styling */
+pre {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--code-bg) !important;
+}
+
+code {
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/* Custom animation classes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s ease-out;
+}

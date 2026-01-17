@@ -1,0 +1,81 @@
+---
+title: Curated Tools
+description: A collection of useful tools and integrations for AxCrew
+---
+
+## MCP Servers
+
+1. **[Playwright MCP Server](https://www.npmjs.com/package/@ax-crew/playwright-mcp)**  
+   Allows agents to interact with web pages using Playwright.
+
+2. **[AirBNB MCP Server](https://github.com/openbnb-org/mcp-server-airbnb)**  
+   MCP Server for searching Airbnb and getting listing details.
+
+3. **[Google Maps MCP Server](https://www.npmjs.com/package/@modelcontextprotocol/server-google-maps)**  
+   Location-based queries, directions, and place information.
+
+4. **[Brave Search MCP Server](https://www.npmjs.com/package/@modelcontextprotocol/server-brave-search)**  
+   Web search capabilities using Brave Search API.
+
+5. **[GitHub MCP Server](https://www.npmjs.com/package/@modelcontextprotocol/server-github)**  
+   GitHub repository interactions - issues, PRs, files.
+
+6. **[Filesystem MCP Server](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem)**  
+   Read and write files within allowed directories.
+
+7. **[PostgreSQL MCP Server](https://www.npmjs.com/package/@modelcontextprotocol/server-postgres)**  
+   Database queries and operations.
+
+## AxFunctions
+
+1. **[tools-google](https://www.npmjs.com/package/@ax-crew/tools-google)**  
+   Google service integrations for AxCrew agents, including Gmail and Google Drive capabilities.
+
+2. **[tools-wordpress](https://www.npmjs.com/package/@ax-crew/tools-wordpress)**  
+   WordPress integration for AxCrew agents, enabling automatic creation of posts on a WordPress site.
+
+## Using MCP Servers
+
+To use an MCP server with your agent, add it to the `mcpServers` configuration:
+
+```json
+{
+  "name": "MyAgent",
+  "mcpServers": {
+    "google-maps": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-maps"],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "your_api_key"
+      }
+    }
+  }
+}
+```
+
+## Using AxFunctions
+
+Import and register AxFunctions in your crew:
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+import { googleTools } from '@ax-crew/tools-google';
+
+const allFunctions = {
+  ...AxCrewFunctions,
+  ...googleTools
+};
+
+const crew = new AxCrew(config, allFunctions);
+```
+
+## Contributing
+
+We welcome contributions to our tools collection! If you've built an MCP Server or an [AxFunction class](/docs/core-concepts/creating-functions), please consider submitting it for inclusion via a [pull request](https://github.com/amitdeshmukh/ax-crew).
+
+### Guidelines for Contributions
+
+1. **Documentation**: Include clear documentation for setup and usage
+2. **Examples**: Provide example configurations and use cases
+3. **Testing**: Ensure your tool works with the latest AxCrew version
+4. **Security**: Follow security best practices, especially for API keys

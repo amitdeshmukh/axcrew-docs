@@ -1,0 +1,249 @@
+---
+title: Examples
+description: Examples of how to use AxCrew in different scenarios
+---
+
+## Available Examples
+
+The AxCrew repository includes comprehensive examples demonstrating various use cases:
+
+| Example | Description |
+|---------|-------------|
+| `basic-researcher-writer.ts` | Multi-agent workflow with researcher and writer |
+| `mcp-agent.ts` | MCP server integration with Google Maps |
+| `streaming.ts` | Real-time streaming responses |
+| `solve-math-problem.ts` | Function/tool usage for calculations |
+| `ace-customer-support.ts` | ACE learning for customer support |
+| `ace-flight-finder.ts` | ACE with sub-agents for flight booking |
+| `telemetry-demo.ts` | OpenTelemetry integration |
+| `perplexityDeepSearch.ts` | Deep search pattern |
+| `write-post-and-publish-to-wordpress.ts` | External API integration |
+
+## Basic Researcher-Writer
+
+A simple crew with two agents working together:
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const config = {
+  crew: [
+    {
+      name: "Researcher",
+      description: "Finds and summarizes information",
+      signature: "topic:string -> research:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4", temperature: 0.2 }
+    },
+    {
+      name: "Writer",
+      description: "Creates content based on research",
+      signature: "topic:string, research:string -> content:string",
+      provider: "anthropic",
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-sonnet", temperature: 0.7 },
+      agents: ["Researcher"]
+    }
+  ]
+};
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAllAgents();
+
+const researcher = crew.agents.get("Researcher");
+const writer = crew.agents.get("Writer");
+
+// Run the workflow
+const topic = "The history of artificial intelligence";
+const researchResults = await researcher.forward({ topic });
+const content = await writer.forward({ 
+  topic, 
+  research: researchResults.research 
+});
+
+console.log("Content:", content.content);
+
+// Check costs
+const costs = crew.getAggregatedCosts();
+console.log(`Total cost: $${costs.totalCost}`);
+```
+
+## Math Problem Solver
+
+An agent with examples for consistent step-by-step solutions:
+
+```typescript
+const config = {
+  crew: [{
+    name: "MathSolver",
+    description: "Solves math problems with explanations",
+    signature: "problem:string -> solution:string",
+    provider: "google-gemini",
+    providerKeyName: "GEMINI_API_KEY",
+    ai: { model: "gemini-1.5-pro", temperature: 0 },
+    examples: [
+      {
+        problem: "Calculate compound interest on $5000 for 3 years at 8% quarterly",
+        solution: "Using A = P(1 + r/n)^(nt):\nA = $5000(1 + 0.08/4)^12 = $6,341.20\nCompound interest = $1,341.20"
+      }
+    ]
+  }]
+};
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAllAgents();
+
+const mathSolver = crew.agents.get("MathSolver");
+const { solution } = await mathSolver.forward({ 
+  problem: "What is the area of a circle with radius 5?" 
+});
+
+console.log("Solution:", solution);
+```
+
+## Multi-agent Travel Planner
+
+A complex crew with multiple agents:
+
+```typescript
+const config = {
+  crew: [
+    {
+      name: "DestinationResearcher",
+      description: "Researches travel destinations",
+      signature: "destination:string -> attractions:string[], details:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-3.5-turbo", temperature: 0.3 }
+    },
+    {
+      name: "AccommodationPlanner",
+      description: "Recommends accommodations",
+      signature: "destination:string, budget:number -> accommodations:string[]",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-1.5-flash", temperature: 0.2 }
+    },
+    {
+      name: "ItineraryCreator",
+      description: "Creates travel itineraries",
+      signature: "destination:string, days:number, attractions:string[], accommodations:string[] -> itinerary:string",
+      provider: "anthropic",
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-haiku", temperature: 0.5 },
+      agents: ["DestinationResearcher", "AccommodationPlanner"]
+    }
+  ]
+};
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAllAgents();
+
+const destination = "Kyoto, Japan";
+const days = 4;
+const budget = 150;
+
+// Store in state
+crew.state.set('travel.destination', destination);
+crew.state.set('travel.days', days);
+crew.state.set('travel.budget', budget);
+
+// Get destination info
+const destinationResearcher = crew.agents.get("DestinationResearcher");
+const research = await destinationResearcher.forward({ destination });
+crew.state.set('travel.attractions', research.attractions);
+
+// Get accommodations
+const accommodationPlanner = crew.agents.get("AccommodationPlanner");
+const accommodations = await accommodationPlanner.forward({ destination, budget });
+crew.state.set('travel.accommodations', accommodations.accommodations);
+
+// Create itinerary
+const itineraryCreator = crew.agents.get("ItineraryCreator");
+const itinerary = await itineraryCreator.forward({ 
+  destination,
+  days,
+  attractions: crew.state.get('travel.attractions'),
+  accommodations: crew.state.get('travel.accommodations')
+});
+
+console.log("Itinerary:", itinerary.itinerary);
+```
+
+## Content Generation with MCP
+
+Using MCP servers for web research:
+
+```typescript
+const config = {
+  crew: [
+    {
+      name: "WebResearcher",
+      description: "Researches information on the web",
+      signature: "topic:string -> findings:string",
+      provider: "anthropic",
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-sonnet", temperature: 0 },
+      mcpServers: {
+        "brave-search": {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-brave-search"],
+          env: { "BRAVE_API_KEY": process.env.BRAVE_API_KEY }
+        }
+      }
+    },
+    {
+      name: "ContentCreator",
+      description: "Creates blog content",
+      signature: "topic:string, findings:string -> title:string, content:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4", temperature: 0.7 },
+      agents: ["WebResearcher"]
+    }
+  ]
+};
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAllAgents();
+
+const contentCreator = crew.agents.get("ContentCreator");
+const blogPost = await contentCreator.forward({ 
+  topic: "Latest developments in quantum computing" 
+});
+
+console.log("Title:", blogPost.title);
+console.log("Content:", blogPost.content);
+```
+
+## Running Examples
+
+Clone the repository and run any example:
+
+```bash
+git clone https://github.com/amitdeshmukh/ax-crew.git
+cd ax-crew
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run an example
+npx tsx examples/basic-researcher-writer.ts
+```
+
+## More Examples
+
+For more complete examples, check out the [examples directory](https://github.com/amitdeshmukh/ax-crew/tree/main/examples) in the AxCrew repository, which includes:
+
+- WordPress integration for posting content
+- Math problem solvers with step-by-step explanations
+- Google Maps integration using MCP
+- ACE learning demonstrations
+- Telemetry and monitoring setup
+
+You can also contribute your own examples by submitting a pull request to the repository.

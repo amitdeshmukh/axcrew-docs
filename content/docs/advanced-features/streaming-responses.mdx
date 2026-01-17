@@ -1,0 +1,103 @@
+---
+title: Streaming Responses
+description: Learn how to use streaming responses with AxCrew agents
+---
+
+## Understanding Streaming Responses
+
+AxCrew extends the AxLLM `streamingForward()` method to support streaming responses from agents, allowing you to receive and process agent outputs in real-time. This is particularly useful for:
+
+- Interactive applications that need to display responses as they're generated
+- Improving perceived responsiveness of your application
+- Providing immediate feedback to users
+
+## Basic Streaming Usage
+
+To use streaming responses, call an agent's `streamingForward()` method, which returns an async generator:
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+
+// Create and initialize crew
+const crew = new AxCrew(config);
+await crew.addAgentsToCrew(['Planner']);
+
+const planner = crew.agents.get('Planner');
+
+// Stream responses using the async generator
+const gen = planner.streamingForward({
+  task: "Create a detailed plan for a website"
+});
+
+let accumulatedText = '';
+
+if (!gen) {
+  throw new Error('Failed to initialize response generator');
+}
+
+for await (const chunk of gen) {
+  if (chunk.delta && typeof chunk.delta === 'object') {
+    const deltaText = 'reply' in chunk.delta 
+      ? (chunk.delta.reply as string) 
+      : JSON.stringify(chunk.delta);
+    accumulatedText += deltaText;
+    console.log('Received chunk:', deltaText);
+  }
+}
+
+console.log('Full response:', accumulatedText);
+```
+
+<Callout type="info">
+The above example assumes your agent's output signature includes a `reply` field (e.g., `... -> reply:string ...`). If your agent's signature is different, adjust the code to extract the appropriate field from `chunk.delta`.
+</Callout>
+
+## Using the onStream Callback
+
+You can also use the `onStream` callback option with the regular `forward()` method:
+
+```typescript
+await planner.forward(
+  { task: "Create a detailed plan for a website" },
+  {
+    onStream: (chunk) => {
+      // Process each chunk of the response as it arrives
+      process.stdout.write(chunk);
+    }
+  }
+);
+```
+
+## Streaming with Sub-agents
+
+Internally, AxLLM uses streaming by default when one agent calls another agent. There's nothing additional you need to do to enable it.
+
+```typescript
+// Sub-agent usage with streaming
+await planner.forward(
+  ai,
+  { task: "Create a detailed plan for a website" },
+  {
+    onStream: (chunk) => {
+      process.stdout.write(chunk);
+    }
+  }
+);
+```
+
+## Key Streaming Features
+
+- **Real-time response processing**: Display content as it's generated
+- **Support for both direct and sub-agent usage**: Works across agent hierarchies
+- **Customizable stream handling**: Use callbacks to process chunks
+- **Compatible with all agent types**: Works with any provider that supports streaming
+- **Maintains cost tracking**: Streaming doesn't affect metrics collection
+
+## Limitations
+
+While streaming provides many benefits, be aware of some limitations:
+
+1. **Function Calls**: When an agent uses functions (tools), some providers may temporarily pause the stream while the function is executed
+2. **Formatting**: Markdown, code formatting, and styled content may appear in pieces before the complete format is visible
+3. **Provider Support**: Not all AI providers support streaming equally well
+4. **Network Reliability**: Streaming is more susceptible to network hiccups than single requests

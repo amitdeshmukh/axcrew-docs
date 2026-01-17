@@ -1,0 +1,291 @@
+---
+title: TypeScript Types
+description: Complete TypeScript type definitions for AxCrew
+---
+
+This page documents all the TypeScript types and interfaces exported by AxCrew.
+
+## Core Types
+
+### AxCrewConfig
+
+The configuration object for an AxCrew instance.
+
+```typescript
+interface AxCrewConfig {
+  crew: AgentConfig[]
+}
+```
+
+### AgentConfig
+
+Configuration for an individual agent in the crew.
+
+```typescript
+interface AgentConfig {
+  name: string;
+  description: string;
+  signature: string | AxSignature;
+  provider: Provider;
+  providerKeyName?: string;
+  ai: AxModelConfig & { model: string };
+  
+  // Optional fields
+  definition?: string;        // Agent persona (min 100 chars)
+  prompt?: string;            // Alias for definition
+  debug?: boolean;
+  apiURL?: string;
+  providerArgs?: Record<string, unknown>;
+  options?: Partial<AxProgramForwardOptions<any>> & Record<string, any>;
+  functions?: string[];
+  agents?: string[];
+  examples?: Array<Record<string, any>>;
+  mcpServers?: Record<string, MCPTransportConfig>;
+  ace?: ACEConfig;
+}
+```
+
+### AxCrewOptions
+
+Options for the AxCrew constructor.
+
+```typescript
+interface AxCrewOptions {
+  debug?: boolean;
+  telemetry?: {
+    tracer?: any;  // OpenTelemetry Tracer
+    meter?: any;   // OpenTelemetry Meter
+  }
+}
+```
+
+## State Types
+
+### StateInstance
+
+Interface for the state object that agents can access.
+
+```typescript
+interface StateInstance {
+  reset(): void;
+  set(key: string, value: any): void;
+  get(key: string): any;
+  getAll(): Record<string, any>;
+  [key: string]: any;
+}
+```
+
+## Function Types
+
+### FunctionRegistryType
+
+A registry of functions that can be used by agents.
+
+```typescript
+type FunctionRegistryType = {
+  [key: string]: AxFunction | { 
+    new(state: Record<string, any>): { 
+      toFunction: () => AxFunction 
+    } 
+  };
+};
+```
+
+## MCP Transport Types
+
+### MCPStdioTransportConfig
+
+Config for an STDIO MCP server.
+
+```typescript
+interface MCPStdioTransportConfig {
+  command: string;
+  args?: string[];
+  env?: NodeJS.ProcessEnv;
+}
+```
+
+### MCPHTTPSSETransportConfig
+
+Config for an HTTP SSE MCP server.
+
+```typescript
+interface MCPHTTPSSETransportConfig {
+  sseUrl: string;
+}
+```
+
+### MCPStreamableHTTPTransportConfig
+
+Config for a streamable HTTP MCP server.
+
+```typescript
+interface MCPStreamableHTTPTransportConfig {
+  mcpEndpoint: string;
+  options?: AxMCPStreamableHTTPTransportOptions;
+}
+```
+
+### MCPTransportConfig
+
+Union type for all MCP transport configurations.
+
+```typescript
+type MCPTransportConfig = 
+  | MCPStdioTransportConfig 
+  | MCPHTTPSSETransportConfig 
+  | MCPStreamableHTTPTransportConfig;
+```
+
+## Cost Types
+
+### UsageCost
+
+Cost information for an individual agent call.
+
+```typescript
+interface UsageCost {
+  promptCost: string;
+  completionCost: string;
+  totalCost: string;
+  tokenMetrics: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+```
+
+### AggregatedCosts
+
+Aggregated cost information for all agents in the crew.
+
+```typescript
+interface AggregatedCosts {
+  totalCost: string;
+  byAgent: Record<string, UsageCost>;
+  aggregatedMetrics: AggregatedMetrics;
+}
+```
+
+### AggregatedMetrics
+
+Aggregated metrics from all agent invocations.
+
+```typescript
+interface AggregatedMetrics {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  promptCost: string;
+  completionCost: string;
+}
+```
+
+## ACE Types
+
+### ACEConfig
+
+Configuration for ACE (Agentic Context Engineering).
+
+```typescript
+interface ACEConfig {
+  teacher?: ACETeacherConfig;
+  persistence?: ACEPersistenceConfig;
+  options?: ACEOptionsConfig;
+  metric?: ACEMetricConfig;
+  compileOnStart?: boolean;
+}
+```
+
+### ACETeacherConfig
+
+Teacher model configuration for ACE.
+
+```typescript
+interface ACETeacherConfig {
+  provider?: Provider;
+  providerKeyName?: string;
+  apiURL?: string;
+  ai?: AxModelConfig & { model: string };
+  providerArgs?: Record<string, unknown>;
+}
+```
+
+### ACEPersistenceConfig
+
+Playbook persistence configuration.
+
+```typescript
+interface ACEPersistenceConfig {
+  playbookPath?: string;
+  initialPlaybook?: Record<string, any>;
+  autoPersist?: boolean;
+  onPersist?: (pb: any) => Promise<void> | void;
+  onLoad?: () => Promise<any> | any;
+}
+```
+
+### ACEOptionsConfig
+
+ACE options configuration.
+
+```typescript
+interface ACEOptionsConfig {
+  maxEpochs?: number;
+  allowDynamicSections?: boolean;
+  tokenBudget?: number;
+  reflectorPrompt?: string;
+  curatorPrompt?: string;
+}
+```
+
+### ACEMetricConfig
+
+ACE metric configuration.
+
+```typescript
+interface ACEMetricConfig {
+  metricFnName?: string;
+  primaryOutputField?: string;
+}
+```
+
+## Provider Types
+
+### Provider
+
+Supported AI providers.
+
+```typescript
+type Provider = 
+  | 'openai'
+  | 'anthropic'
+  | 'google-gemini'
+  | 'cohere'
+  | 'groq'
+  | 'together'
+  | 'mistral'
+  | 'huggingface'
+  | 'azure-openai'
+  | 'ollama'
+  // ... and more
+```
+
+## Importing Types
+
+All types can be imported from the main package:
+
+```typescript
+import type { 
+  AxCrewConfig,
+  AgentConfig,
+  AxCrewOptions,
+  StateInstance,
+  FunctionRegistryType,
+  MCPTransportConfig,
+  UsageCost,
+  AggregatedCosts,
+  ACEConfig
+} from '@amitdeshmukh/ax-crew';
+```

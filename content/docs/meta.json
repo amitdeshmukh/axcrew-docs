@@ -1,0 +1,27 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "getting-started",
+    "---Core Concepts---",
+    "core-concepts/agent-configuration",
+    "core-concepts/crew-configuration",
+    "core-concepts/creating-functions",
+    "core-concepts/state-management",
+    "core-concepts/working-with-examples",
+    "---Advanced Features---",
+    "advanced-features/streaming-responses",
+    "advanced-features/cost-tracking",
+    "advanced-features/mcp-integration",
+    "advanced-features/ace",
+    "advanced-features/telemetry",
+    "---Examples---",
+    "examples/examples",
+    "---Curated Tools---",
+    "curated-tools/index",
+    "---Reference---",
+    "reference/axcrew-class",
+    "reference/stateful-agent",
+    "reference/types"
+  ]
+}

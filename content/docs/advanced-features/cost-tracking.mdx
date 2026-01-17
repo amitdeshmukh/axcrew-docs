@@ -1,0 +1,221 @@
+---
+title: Cost Tracking
+description: Learn how to track and manage API usage costs with AxCrew
+---
+
+## Understanding Cost Tracking
+
+AxCrew provides robust cost tracking capabilities to help you monitor and manage your API usage expenses. The cost tracking system:
+
+- Tracks token usage and associated costs for each agent call
+- Maintains both individual agent costs and aggregated crew costs
+- Uses high-precision decimal calculations for accuracy
+- Supports different pricing tiers for various AI models
+
+## New Metrics API
+
+AxCrew provides a modern metrics API for monitoring:
+
+```typescript
+// Per-agent metrics
+const agentMetrics = (planner as any).getMetrics?.();
+console.log(agentMetrics);
+/*
+{
+  provider: "anthropic",
+  model: "claude-3-haiku-20240307",
+  requests: { 
+    totalRequests, 
+    totalErrors, 
+    errorRate, 
+    totalStreamingRequests,
+    durationMsSum,
+    durationCount 
+  },
+  tokens: { promptTokens, completionTokens, totalTokens },
+  estimatedCostUSD: 0.00091, // rounded to 5 decimals
+  functions: { totalFunctionCalls, totalFunctionLatencyMs }
+}
+*/
+
+// Crew metrics
+const crewMetrics = crew.getCrewMetrics();
+console.log(crewMetrics);
+/*
+{
+  requests: { ... },
+  tokens: { promptTokens, completionTokens, totalTokens },
+  estimatedCostUSD: 0.00255,
+  functions: { ... }
+}
+*/
+```
+
+## Accessing Cost Information
+
+### Individual Agent Last Usage Cost
+
+Get the cost of the most recent call to an agent:
+
+```typescript
+const planner = crew.agents.get('Planner');
+
+// Run the agent
+const response = await planner.forward({ task: "Create a plan" });
+
+// Get cost information for the last call
+const lastCost = planner.getLastUsageCost();
+console.log(lastCost);
+```
+
+Example output:
+```javascript
+{
+  promptCost: "0.0003637500000",
+  completionCost: "0.0006100000000",
+  totalCost: "0.0009737500000",
+  tokenMetrics: {
+    promptTokens: 291,
+    completionTokens: 122,
+    totalTokens: 413
+  }
+}
+```
+
+### Individual Agent Accumulated Costs
+
+```typescript
+const accumulatedCost = planner.getAccumulatedCosts();
+console.log(accumulatedCost);
+```
+
+### Aggregated Crew Costs
+
+```typescript
+const crewCosts = crew.getAggregatedCosts();
+console.log(crewCosts);
+```
+
+Example output:
+```javascript
+{
+  totalCost: "0.0025482500000",
+  byAgent: {
+    "Planner": {
+      promptCost: "0.0003637500000",
+      completionCost: "0.0006100000000",
+      totalCost: "0.0009737500000",
+      tokenMetrics: {
+        promptTokens: 291,
+        completionTokens: 122,
+        totalTokens: 413
+      }
+    },
+    "Calculator": { ... },
+    "Manager": { ... }
+  },
+  aggregatedMetrics: {
+    promptTokens: 850,
+    completionTokens: 324,
+    totalTokens: 1174,
+    promptCost: "0.0010625000000",
+    completionCost: "0.0014857500000"
+  }
+}
+```
+
+## Resetting Costs
+
+```typescript
+// Reset all cost tracking
+crew.resetCosts();
+```
+
+## Cost Tracking with Sessions
+
+Track costs across multiple sessions:
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew(config, AxCrewFunctions);
+await crew.addAgentsToCrew(['Planner', 'Writer']);
+
+// Start a new session
+crew.state.set('session', {
+  id: 'user-123',
+  startTime: new Date().toISOString()
+});
+
+// Reset costs for new session
+crew.resetCosts();
+
+// Run agents
+await crew.agents.get('Planner').forward({ task: "Plan a blog post" });
+await crew.agents.get('Writer').forward({ task: "Write introduction" });
+
+// Store session costs
+const sessionCosts = crew.getAggregatedCosts();
+crew.state.set('session.costs', sessionCosts);
+
+console.log(`Session ${crew.state.get('session').id} completed`);
+console.log(`Total cost: $${sessionCosts.totalCost}`);
+console.log(`Total tokens: ${sessionCosts.aggregatedMetrics.totalTokens}`);
+```
+
+## Budget Management
+
+Implement budget caps for production:
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import Decimal from 'decimal.js';
+
+const crew = new AxCrew(config);
+await crew.addAgentsToCrew(['Researcher', 'Writer']);
+
+const budgetLimit = new Decimal('0.50'); // $0.50 budget
+
+function isWithinBudget() {
+  const currentCost = new Decimal(crew.getAggregatedCosts().totalCost);
+  return currentCost.lessThan(budgetLimit);
+}
+
+function getRemainingBudget() {
+  const currentCost = new Decimal(crew.getAggregatedCosts().totalCost);
+  return budgetLimit.minus(currentCost);
+}
+
+async function runWithinBudget() {
+  try {
+    if (!isWithinBudget()) {
+      throw new Error('Budget limit reached');
+    }
+    
+    await crew.agents.get('Researcher').forward({ query: "Latest AI" });
+    
+    if (!isWithinBudget()) {
+      throw new Error('Budget limit reached after research');
+    }
+    
+    await crew.agents.get('Writer').forward({ topic: "Latest AI" });
+    
+    const finalCost = crew.getAggregatedCosts();
+    console.log(`Completed. Cost: $${finalCost.totalCost}`);
+    console.log(`Remaining: $${getRemainingBudget()}`);
+    
+  } catch (error) {
+    console.error('Budget error:', error.message);
+  }
+}
+
+runWithinBudget();
+```
+
+## Best Practices
+
+1. **Regular Monitoring**: Check costs periodically during development
+2. **Budget Limits**: Implement budget caps for production environments
+3. **Cost Attribution**: Use state to track costs per user or per session
+4. **Logging**: Log cost information alongside other metrics
+5. **Provider Selection**: Choose models based on cost-performance tradeoff
