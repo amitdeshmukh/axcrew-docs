@@ -69,11 +69,13 @@ const crew = new AxCrew(
 
 When telemetry is enabled, AxCrew automatically instruments:
 
-- **Agent Execution**: Each agent's `forward()` call creates a span with timing and metadata
+- **Agent Execution**: Both `forward()` and `streamingForward()` calls create spans with timing and metadata
 - **Function Calls**: Tool/function invocations are traced with parameters and results
 - **Provider Information**: Model name, provider, and configuration details
 - **Token Metrics**: Input/output tokens and estimated costs
 - **Errors**: Exceptions and failures are captured with full context
+
+Note: Telemetry is injected into the underlying AxAI instance, so all LLM calls (both synchronous and streaming) are automatically instrumented.
 
 ## Advanced Configuration with Jaeger
 
