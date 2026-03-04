@@ -1,221 +1,101 @@
 ---
 title: Cost Tracking
-description: Learn how to track and manage API usage costs with AxCrew
+description: Track token usage, request metrics, and estimated USD costs in AxCrew
 ---
 
-## Understanding Cost Tracking
+AxCrew exposes cost and usage through the metrics API.
 
-AxCrew provides robust cost tracking capabilities to help you monitor and manage your API usage expenses. The cost tracking system:
+## What Is Tracked
 
-- Tracks token usage and associated costs for each agent call
-- Maintains both individual agent costs and aggregated crew costs
-- Uses high-precision decimal calculations for accuracy
-- Supports different pricing tiers for various AI models
+- request counts and error rate
+- streaming vs non-streaming request counts
+- prompt/completion/total tokens
+- estimated cumulative USD cost
+- function/tool call counts and latency
 
-## New Metrics API
-
-AxCrew provides a modern metrics API for monitoring:
+## Per-Agent Metrics
 
 ```typescript
-// Per-agent metrics
-const agentMetrics = (planner as any).getMetrics?.();
-console.log(agentMetrics);
+const planner = crew.agents?.get('Planner');
+
+await planner?.forward({ task: 'Create a rollout plan' });
+
+const m = (planner as any).getMetrics?.();
+console.log(m);
 /*
 {
-  provider: "anthropic",
-  model: "claude-3-haiku-20240307",
-  requests: { 
-    totalRequests, 
-    totalErrors, 
-    errorRate, 
-    totalStreamingRequests,
-    durationMsSum,
-    durationCount 
+  requests: {
+    totalRequests: number,
+    totalErrors: number,
+    errorRate: number,
+    totalStreamingRequests: number,
+    durationMsSum: number,
+    durationCount: number
   },
-  tokens: { promptTokens, completionTokens, totalTokens },
-  estimatedCostUSD: 0.00091, // rounded to 5 decimals
-  functions: { totalFunctionCalls, totalFunctionLatencyMs }
+  tokens: {
+    promptTokens: number,
+    completionTokens: number,
+    totalTokens: number
+  },
+  estimatedCostUSD: number,
+  functions: {
+    totalFunctionCalls: number,
+    totalFunctionLatencyMs: number,
+    details?: [{ name, calls, totalLatencyMs }]
+  }
 }
 */
+```
 
-// Crew metrics
+## Crew Metrics
+
+```typescript
 const crewMetrics = crew.getCrewMetrics();
-console.log(crewMetrics);
-/*
-{
-  requests: { ... },
-  tokens: { promptTokens, completionTokens, totalTokens },
-  estimatedCostUSD: 0.00255,
-  functions: { ... }
-}
-*/
+
+console.log('Crew USD:', crewMetrics.estimatedCostUSD);
+console.log('Crew tokens:', crewMetrics.tokens.totalTokens);
 ```
 
-## Accessing Cost Information
-
-### Individual Agent Last Usage Cost
-
-Get the cost of the most recent call to an agent:
+## Reset Metrics/Costs
 
 ```typescript
-const planner = crew.agents.get('Planner');
-
-// Run the agent
-const response = await planner.forward({ task: "Create a plan" });
-
-// Get cost information for the last call
-const lastCost = planner.getLastUsageCost();
-console.log(lastCost);
-```
-
-Example output:
-```javascript
-{
-  promptCost: "0.0003637500000",
-  completionCost: "0.0006100000000",
-  totalCost: "0.0009737500000",
-  tokenMetrics: {
-    promptTokens: 291,
-    completionTokens: 122,
-    totalTokens: 413
-  }
-}
-```
-
-### Individual Agent Accumulated Costs
-
-```typescript
-const accumulatedCost = planner.getAccumulatedCosts();
-console.log(accumulatedCost);
-```
-
-### Aggregated Crew Costs
-
-```typescript
-const crewCosts = crew.getAggregatedCosts();
-console.log(crewCosts);
-```
-
-Example output:
-```javascript
-{
-  totalCost: "0.0025482500000",
-  byAgent: {
-    "Planner": {
-      promptCost: "0.0003637500000",
-      completionCost: "0.0006100000000",
-      totalCost: "0.0009737500000",
-      tokenMetrics: {
-        promptTokens: 291,
-        completionTokens: 122,
-        totalTokens: 413
-      }
-    },
-    "Calculator": { ... },
-    "Manager": { ... }
-  },
-  aggregatedMetrics: {
-    promptTokens: 850,
-    completionTokens: 324,
-    totalTokens: 1174,
-    promptCost: "0.0010625000000",
-    completionCost: "0.0014857500000"
-  }
-}
-```
-
-## Resetting Costs
-
-```typescript
-// Reset all cost tracking
 crew.resetCosts();
+// or
+crew.resetCrewMetrics();
 ```
 
-## Cost Tracking with Sessions
+## Mode Compatibility (`axagent` and `axgen`)
 
-Track costs across multiple sessions:
+Metrics/cost tracking works regardless of per-agent execution mode:
+
+- `executionMode: "axagent"`
+- `executionMode: "axgen"`
+
+This includes AxAgent RLM mode configured with `axAgentOptions`.
+
+## Session-Level Pattern
 
 ```typescript
-import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
-
-const crew = new AxCrew(config, AxCrewFunctions);
-await crew.addAgentsToCrew(['Planner', 'Writer']);
-
-// Start a new session
-crew.state.set('session', {
-  id: 'user-123',
-  startTime: new Date().toISOString()
-});
-
-// Reset costs for new session
 crew.resetCosts();
 
-// Run agents
-await crew.agents.get('Planner').forward({ task: "Plan a blog post" });
-await crew.agents.get('Writer').forward({ task: "Write introduction" });
+await crew.agents?.get('Planner')?.forward({ task: 'Draft architecture options' });
+await crew.agents?.get('Writer')?.forward({ task: 'Write summary' });
 
-// Store session costs
-const sessionCosts = crew.getAggregatedCosts();
-crew.state.set('session.costs', sessionCosts);
+const sessionMetrics = crew.getCrewMetrics();
+crew.state.set('session.metrics', sessionMetrics);
 
-console.log(`Session ${crew.state.get('session').id} completed`);
-console.log(`Total cost: $${sessionCosts.totalCost}`);
-console.log(`Total tokens: ${sessionCosts.aggregatedMetrics.totalTokens}`);
+console.log('Session USD:', sessionMetrics.estimatedCostUSD);
+console.log('Session tokens:', sessionMetrics.tokens.totalTokens);
 ```
 
-## Budget Management
+## Important Notes
 
-Implement budget caps for production:
+- Legacy cost APIs (`getLastUsageCost`, `getAccumulatedCosts`, `getAggregatedCosts`) are superseded by metrics APIs.
+- Use metrics snapshots (`getMetrics`, `getCrewMetrics`) for production reporting.
 
-```typescript
-import { AxCrew } from '@amitdeshmukh/ax-crew';
-import Decimal from 'decimal.js';
+## RLM Validation Examples
 
-const crew = new AxCrew(config);
-await crew.addAgentsToCrew(['Researcher', 'Writer']);
+These examples print per-agent and crew costs at the end:
 
-const budgetLimit = new Decimal('0.50'); // $0.50 budget
-
-function isWithinBudget() {
-  const currentCost = new Decimal(crew.getAggregatedCosts().totalCost);
-  return currentCost.lessThan(budgetLimit);
-}
-
-function getRemainingBudget() {
-  const currentCost = new Decimal(crew.getAggregatedCosts().totalCost);
-  return budgetLimit.minus(currentCost);
-}
-
-async function runWithinBudget() {
-  try {
-    if (!isWithinBudget()) {
-      throw new Error('Budget limit reached');
-    }
-    
-    await crew.agents.get('Researcher').forward({ query: "Latest AI" });
-    
-    if (!isWithinBudget()) {
-      throw new Error('Budget limit reached after research');
-    }
-    
-    await crew.agents.get('Writer').forward({ topic: "Latest AI" });
-    
-    const finalCost = crew.getAggregatedCosts();
-    console.log(`Completed. Cost: $${finalCost.totalCost}`);
-    console.log(`Remaining: $${getRemainingBudget()}`);
-    
-  } catch (error) {
-    console.error('Budget error:', error.message);
-  }
-}
-
-runWithinBudget();
-```
-
-## Best Practices
-
-1. **Regular Monitoring**: Check costs periodically during development
-2. **Budget Limits**: Implement budget caps for production environments
-3. **Cost Attribution**: Use state to track costs per user or per session
-4. **Logging**: Log cost information alongside other metrics
-5. **Provider Selection**: Choose models based on cost-performance tradeoff
+- [`rlm-long-task.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-long-task.ts)
+- [`rlm-shared-fields.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-shared-fields.ts)

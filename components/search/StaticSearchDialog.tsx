@@ -14,6 +14,7 @@ const searchData = [
   { url: '/docs/core-concepts/state-management/', title: 'State Management', description: 'Shared state across agents' },
   { url: '/docs/core-concepts/working-with-examples/', title: 'Working with Examples', description: 'Use examples for agent training' },
   { url: '/docs/advanced-features/streaming-responses/', title: 'Streaming Responses', description: 'Real-time streaming from agents' },
+  { url: '/docs/advanced-features/execution-modes-rlm/', title: 'Execution Modes and RLM', description: 'AxAgent RLM and AxGen mode routing' },
   { url: '/docs/advanced-features/cost-tracking/', title: 'Cost Tracking', description: 'Track API usage and costs' },
   { url: '/docs/advanced-features/mcp-integration/', title: 'MCP Integration', description: 'Model Context Protocol servers' },
   { url: '/docs/advanced-features/ace/', title: 'ACE', description: 'Agentic Context Engineering' },

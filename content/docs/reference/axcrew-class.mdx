@@ -3,197 +3,180 @@ title: AxCrew Class
 description: API reference for the AxCrew class
 ---
 
-The `AxCrew` class is the main entry point for creating and managing a crew of AI agents.
+`AxCrew` is the main orchestration class for creating and managing agent crews.
 
 ## Constructor
 
 ```typescript
 constructor(
-  configInput: CrewConfigInput, 
-  functions?: FunctionRegistryType,
-  state?: StateInstance,
-  options?: AxCrewOptions
+  crewConfig: AxCrewConfig,
+  functionsRegistry?: FunctionRegistryType,
+  options?: AxCrewOptions,
+  crewId?: string
 )
 ```
 
-Creates a new AxCrew instance.
+Parameters:
 
-**Parameters:**
-- `configInput` - A configuration object with a `crew` array
-- `functions` - Optional. A registry of functions that agents can use
-- `state` - Optional. A custom state instance
-- `options` - Optional. Additional options including telemetry configuration
-
-**Examples:**
-
-```typescript
-// Using a configuration object
-const crew = new AxCrew({
-  crew: [
-    {
-      name: "Planner",
-      description: "Creates a plan",
-      signature: "task:string -> plan:string",
-      provider: "openai",
-      providerKeyName: "OPENAI_API_KEY",
-      ai: { model: "gpt-4", temperature: 0 }
-    }
-  ]
-});
-
-// With functions
-import { AxCrewFunctions } from '@amitdeshmukh/ax-crew';
-const crew = new AxCrew(config, AxCrewFunctions);
-
-// With telemetry
-const crew = new AxCrew(config, AxCrewFunctions, undefined, {
-  telemetry: { tracer, meter }
-});
-```
+- `crewConfig`: required config object with `crew` array
+- `functionsRegistry`: optional function/tool registry
+- `options`: optional settings (`debug`, `telemetry`)
+- `crewId`: optional explicit crew identifier
 
 ## Properties
 
-### state
+### `agents`
+
+```typescript
+agents: Map<string, StatefulAxAgent> | null
+```
+
+Holds initialized agent instances keyed by name.
+
+### `state`
 
 ```typescript
 state: StateInstance
 ```
 
-A shared state instance accessible by all agents in the crew.
+Shared mutable state for the entire crew.
+
+### `crewId`
 
 ```typescript
-crew.state.set('key', 'value');
-const value = crew.state.get('key');
-const allState = crew.state.getAll();
+crewId: string
 ```
 
-### agents
+Crew-scoped identifier used by metrics.
+
+## Lifecycle / Initialization
+
+### `addAgent(agentName)`
 
 ```typescript
-agents: Map<string, StatefulAxAgent>
+addAgent(agentName: string): Promise<void>
 ```
 
-A map of all initialized agents in the crew, keyed by agent name.
+Adds a single agent by name. Manual dependency ordering required.
+
+### `addAgentsToCrew(agentNames)`
 
 ```typescript
-const planner = crew.agents.get('Planner');
-
-if (crew.agents.has('Calculator')) {
-  // Use Calculator agent
-}
+addAgentsToCrew(agentNames: string[]): Promise<Map<string, StatefulAxAgent> | null>
 ```
 
-## Methods
+Adds a subset of agents and resolves dependencies automatically.
 
-### addAgent
+### `addAllAgents()`
 
 ```typescript
-async addAgent(agentName: string): Promise<StatefulAxAgent | undefined>
+addAllAgents(): Promise<Map<string, StatefulAxAgent> | null>
 ```
 
-Adds a single agent to the crew by name.
+Adds all configured agents with dependency ordering.
 
-<Callout type="warning">
-This method requires you to handle dependencies manually. You must add any agents that this agent depends on before calling this method.
-</Callout>
+### `destroy()`
 
 ```typescript
-const calculator = await crew.addAgent('Calculator');
+destroy(): void
 ```
 
-### addAgentsToCrew
+Clears references and shared crew state.
 
-```typescript
-async addAgentsToCrew(agentNames: string[]): Promise<Map<string, StatefulAxAgent> | undefined>
-```
+## Metrics and Cost APIs
 
-Adds multiple agents to the crew, automatically handling dependencies.
-
-```typescript
-const agents = await crew.addAgentsToCrew(['Manager', 'Planner']);
-```
-
-### addAllAgents
-
-```typescript
-async addAllAgents(): Promise<Map<string, StatefulAxAgent> | undefined>
-```
-
-Adds all agents defined in the configuration, automatically handling dependencies.
-
-```typescript
-const agents = await crew.addAllAgents();
-```
-
-### getAggregatedCosts
-
-```typescript
-getAggregatedCosts(): AggregatedCosts
-```
-
-Gets the aggregated costs for all agents in the crew.
-
-```typescript
-const costs = crew.getAggregatedCosts();
-console.log(`Total cost: $${costs.totalCost}`);
-console.log(`Total tokens: ${costs.aggregatedMetrics.totalTokens}`);
-```
-
-### getCrewMetrics
+### `getCrewMetrics()`
 
 ```typescript
 getCrewMetrics(): MetricsSnapshot
 ```
 
-Gets the metrics snapshot for the entire crew.
+Returns crew-wide aggregated request/token/cost/function metrics.
+
+### `resetCrewMetrics()`
 
 ```typescript
-const metrics = crew.getCrewMetrics();
-console.log(metrics);
+resetCrewMetrics(): void
 ```
 
-### resetCosts
+Resets crew-level metrics in the metrics registry.
+
+### `resetCosts()`
 
 ```typescript
 resetCosts(): void
 ```
 
-Resets the cost tracking for all agents in the crew.
+Resets agent usage + metrics for the crew.
+
+## ACE Feedback Routing APIs
+
+### `applyTaskFeedback(params)`
 
 ```typescript
-crew.resetCosts();
-```
-
-### applyTaskFeedback
-
-```typescript
-async applyTaskFeedback(options: {
+applyTaskFeedback(params: {
   taskId: string;
   feedback: string;
-  strategy: 'all' | 'primary' | 'leaf';
+  strategy?: 'all' | 'primary' | 'weighted';
 }): Promise<void>
 ```
 
-Applies feedback to agents for ACE learning.
+Applies feedback across agents involved in a task.
+
+### `trackAgentExecution(taskId, agentName, input)`
 
 ```typescript
-await crew.applyTaskFeedback({
-  taskId: result._taskId,
-  feedback: "Be more concise in responses",
-  strategy: "all"
+trackAgentExecution(taskId: string, agentName: string, input: any): void
+```
+
+Tracks execution context for ACE feedback routing.
+
+### `recordAgentResult(taskId, agentName, result)`
+
+```typescript
+recordAgentResult(taskId: string, agentName: string, result: any): void
+```
+
+Stores output used for feedback propagation.
+
+### `getTaskAgentInvolvement(taskId)`
+
+```typescript
+getTaskAgentInvolvement(taskId: string): {
+  rootAgent: string;
+  involvedAgents: string[];
+  taskInput: any;
+  agentResults: Map<string, any>;
+  duration?: number;
+} | null
+```
+
+Returns execution context for a previously tracked task.
+
+### `cleanupOldExecutions(maxAgeMs?)`
+
+```typescript
+cleanupOldExecutions(maxAgeMs?: number): void
+```
+
+Removes stale execution-history entries (default 1 hour).
+
+## Usage Example
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew(config, AxCrewFunctions, {
+  telemetry: { tracer, meter },
 });
-```
 
-## Static Methods
+await crew.addAllAgents();
 
-### registerMCPServer
+const planner = crew.agents?.get('Planner');
+const res = await planner?.forward({ task: 'Plan migration' });
 
-```typescript
-static registerMCPServer(name: string, server: MCPServer): void
-```
+console.log(res);
+console.log(crew.getCrewMetrics());
 
-Registers a custom MCP server for use with agents.
-
-```typescript
-AxCrew.registerMCPServer('custom-api', customServer);
+crew.destroy();
 ```

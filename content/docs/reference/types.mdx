@@ -1,38 +1,32 @@
 ---
 title: TypeScript Types
-description: Complete TypeScript type definitions for AxCrew
+description: Core TypeScript type definitions exported by AxCrew
 ---
 
-This page documents all the TypeScript types and interfaces exported by AxCrew.
+## Core Config Types
 
-## Core Types
-
-### AxCrewConfig
-
-The configuration object for an AxCrew instance.
+### `AxCrewConfig`
 
 ```typescript
 interface AxCrewConfig {
-  crew: AgentConfig[]
+  crew: AgentConfig[];
 }
 ```
 
-### AgentConfig
-
-Configuration for an individual agent in the crew.
+### `AgentConfig`
 
 ```typescript
 interface AgentConfig {
   name: string;
   description: string;
+  executionMode?: AgentExecutionMode; // "axagent" | "axgen"
+  axAgentOptions?: AxCrewAxAgentOptions;
+  definition?: string;
+  prompt?: string;
   signature: string | AxSignature;
   provider: Provider;
   providerKeyName?: string;
   ai: AxModelConfig & { model: string };
-  
-  // Optional fields
-  definition?: string;        // Agent persona (min 100 chars)
-  prompt?: string;            // Alias for definition
   debug?: boolean;
   apiURL?: string;
   providerArgs?: Record<string, unknown>;
@@ -45,25 +39,43 @@ interface AgentConfig {
 }
 ```
 
-### AxCrewOptions
+### `AgentExecutionMode`
 
-Options for the AxCrew constructor.
+```typescript
+type AgentExecutionMode = 'axagent' | 'axgen';
+```
+
+### `AxCrewAxAgentOptions`
+
+AxAgent options exposed through AxCrew for RLM and related settings.
+
+```typescript
+type AxCrewAxAgentOptions =
+  Partial<Omit<AxAgentOptions, 'agents' | 'functions' | 'contextFields'>> & {
+    contextFields?: AxAgentOptions['contextFields'];
+    agents?: AxAgentOptions['agents'];
+    functions?: AxAgentOptions['functions'];
+    fields?: AxAgentOptions['fields'];
+  };
+```
+
+## Crew Options
+
+### `AxCrewOptions`
 
 ```typescript
 interface AxCrewOptions {
   debug?: boolean;
   telemetry?: {
-    tracer?: any;  // OpenTelemetry Tracer
-    meter?: any;   // OpenTelemetry Meter
-  }
+    tracer?: any;
+    meter?: any;
+  };
 }
 ```
 
-## State Types
+## State and Functions
 
-### StateInstance
-
-Interface for the state object that agents can access.
+### `StateInstance`
 
 ```typescript
 interface StateInstance {
@@ -75,27 +87,17 @@ interface StateInstance {
 }
 ```
 
-## Function Types
-
-### FunctionRegistryType
-
-A registry of functions that can be used by agents.
+### `FunctionRegistryType`
 
 ```typescript
 type FunctionRegistryType = {
-  [key: string]: AxFunction | { 
-    new(state: Record<string, any>): { 
-      toFunction: () => AxFunction 
-    } 
-  };
+  [key: string]:
+    | AxFunction
+    | { new (state: Record<string, any>): { toFunction: () => AxFunction } };
 };
 ```
 
-## MCP Transport Types
-
-### MCPStdioTransportConfig
-
-Config for an STDIO MCP server.
+## MCP Types
 
 ```typescript
 interface MCPStdioTransportConfig {
@@ -103,189 +105,84 @@ interface MCPStdioTransportConfig {
   args?: string[];
   env?: NodeJS.ProcessEnv;
 }
-```
 
-### MCPHTTPSSETransportConfig
-
-Config for an HTTP SSE MCP server.
-
-```typescript
 interface MCPHTTPSSETransportConfig {
   sseUrl: string;
 }
-```
 
-### MCPStreamableHTTPTransportConfig
-
-Config for a streamable HTTP MCP server.
-
-```typescript
 interface MCPStreamableHTTPTransportConfig {
   mcpEndpoint: string;
   options?: AxMCPStreamableHTTPTransportOptions;
 }
-```
 
-### MCPTransportConfig
-
-Union type for all MCP transport configurations.
-
-```typescript
-type MCPTransportConfig = 
-  | MCPStdioTransportConfig 
-  | MCPHTTPSSETransportConfig 
+type MCPTransportConfig =
+  | MCPStdioTransportConfig
+  | MCPHTTPSSETransportConfig
   | MCPStreamableHTTPTransportConfig;
 ```
 
-## Cost Types
+## Metrics Types
 
-### UsageCost
+AxCrew metrics snapshots are exported from `@amitdeshmukh/ax-crew` (re-exported from `src/metrics`).
 
-Cost information for an individual agent call.
+Key shape:
 
 ```typescript
-interface UsageCost {
-  promptCost: string;
-  completionCost: string;
-  totalCost: string;
-  tokenMetrics: {
+interface MetricsSnapshot {
+  provider?: string;
+  model?: string;
+  requests: {
+    totalRequests: number;
+    totalErrors: number;
+    errorRate: number;
+    totalStreamingRequests: number;
+    durationMsSum: number;
+    durationCount: number;
+  };
+  tokens: {
     promptTokens: number;
     completionTokens: number;
-    totalTokens: number;
+    totalTokens?: number;
+  };
+  estimatedCostUSD: number;
+  functions: {
+    totalFunctionCalls: number;
+    totalFunctionLatencyMs: number;
+    details?: Array<{ name: string; calls: number; totalLatencyMs: number }>;
   };
 }
 ```
 
-### AggregatedCosts
+## Legacy Cost Types
 
-Aggregated cost information for all agents in the crew.
+These types remain exported for compatibility:
 
-```typescript
-interface AggregatedCosts {
-  totalCost: string;
-  byAgent: Record<string, UsageCost>;
-  aggregatedMetrics: AggregatedMetrics;
-}
-```
+- `UsageCost`
+- `AggregatedCosts`
+- `AggregatedMetrics`
 
-### AggregatedMetrics
-
-Aggregated metrics from all agent invocations.
-
-```typescript
-interface AggregatedMetrics {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  promptCost: string;
-  completionCost: string;
-}
-```
+Use metrics APIs (`getMetrics`, `getCrewMetrics`) for current reporting.
 
 ## ACE Types
 
-### ACEConfig
+- `ACEConfig`
+- `ACETeacherConfig`
+- `ACEPersistenceConfig`
+- `ACEOptionsConfig`
+- `ACEMetricConfig`
 
-Configuration for ACE (Agentic Context Engineering).
-
-```typescript
-interface ACEConfig {
-  teacher?: ACETeacherConfig;
-  persistence?: ACEPersistenceConfig;
-  options?: ACEOptionsConfig;
-  metric?: ACEMetricConfig;
-  compileOnStart?: boolean;
-}
-```
-
-### ACETeacherConfig
-
-Teacher model configuration for ACE.
+## Import Example
 
 ```typescript
-interface ACETeacherConfig {
-  provider?: Provider;
-  providerKeyName?: string;
-  apiURL?: string;
-  ai?: AxModelConfig & { model: string };
-  providerArgs?: Record<string, unknown>;
-}
-```
-
-### ACEPersistenceConfig
-
-Playbook persistence configuration.
-
-```typescript
-interface ACEPersistenceConfig {
-  playbookPath?: string;
-  initialPlaybook?: Record<string, any>;
-  autoPersist?: boolean;
-  onPersist?: (pb: any) => Promise<void> | void;
-  onLoad?: () => Promise<any> | any;
-}
-```
-
-### ACEOptionsConfig
-
-ACE options configuration.
-
-```typescript
-interface ACEOptionsConfig {
-  maxEpochs?: number;
-  allowDynamicSections?: boolean;
-  tokenBudget?: number;
-  reflectorPrompt?: string;
-  curatorPrompt?: string;
-}
-```
-
-### ACEMetricConfig
-
-ACE metric configuration.
-
-```typescript
-interface ACEMetricConfig {
-  metricFnName?: string;
-  primaryOutputField?: string;
-}
-```
-
-## Provider Types
-
-### Provider
-
-Supported AI providers.
-
-```typescript
-type Provider = 
-  | 'openai'
-  | 'anthropic'
-  | 'google-gemini'
-  | 'cohere'
-  | 'groq'
-  | 'together'
-  | 'mistral'
-  | 'huggingface'
-  | 'azure-openai'
-  | 'ollama'
-  // ... and more
-```
-
-## Importing Types
-
-All types can be imported from the main package:
-
-```typescript
-import type { 
+import type {
   AxCrewConfig,
   AgentConfig,
+  AgentExecutionMode,
+  AxCrewAxAgentOptions,
   AxCrewOptions,
   StateInstance,
   FunctionRegistryType,
   MCPTransportConfig,
-  UsageCost,
-  AggregatedCosts,
-  ACEConfig
+  ACEConfig,
 } from '@amitdeshmukh/ax-crew';
 ```

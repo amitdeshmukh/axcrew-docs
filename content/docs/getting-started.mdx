@@ -5,123 +5,113 @@ description: Learn how to install and set up AxCrew in your project
 
 ## What is AxCrew?
 
-AxCrew is a framework for building and managing **crews of AI agents**. It is built on top of [AxLLM](https://axllm.dev), a powerful TypeScript framework for building and managing LLM agents.
+AxCrew is a framework for building and managing crews of AI agents on top of [AxLLM](https://axllm.dev).
 
 ## Installation
 
-Install the AxCrew package using npm:
+Install AxCrew and Ax peer dependencies:
 
 ```bash
 npm install @amitdeshmukh/ax-crew
-```
-
-Since AxLLM is a peer dependency, you'll need to install it separately:
-
-```bash
-npm install @ax-llm/ax
+npm install @ax-llm/ax @ax-llm/ax-tools
 ```
 
 <Callout type="info">
-  **Requirements**: Node.js >= 21
+  Requirements: Node.js >= 21
 </Callout>
 
 ## Environment Setup
 
-Create a `.env` file in your project root with the API keys for the AI providers you intend to use:
+Create a `.env` file and provide provider keys:
 
 ```bash
-# OpenAI
-OPENAI_API_KEY=your_openai_key
-
-# Anthropic
-ANTHROPIC_API_KEY=your_anthropic_key
-
-# Google Gemini
-GEMINI_API_KEY=your_gemini_key
-
-# Add other provider keys as needed
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+GEMINI_API_KEY=...
 ```
 
-For a complete list of supported environment variables, check the [.env.example](https://github.com/amitdeshmukh/ax-crew/blob/main/.env.example) file in the repository.
+In each agent config, set `providerKeyName` to the env var name.
 
-## Basic Setup
-
-Here's a minimal example of how to set up an AxCrew instance with a single agent:
+## Minimal Setup
 
 ```typescript
 import { AxCrew } from '@amitdeshmukh/ax-crew';
 
-// Create the configuration object
 const config = {
   crew: [
     {
-      name: "Manager",
-      description: "Completes a task or responds to a question",
-      signature: "task:string \"task or question from the user\" -> reply:string \"detailed response addressing the user's task\"",
-      provider: "openai",
-      providerKeyName: "OPENAI_API_KEY", 
+      name: 'Manager',
+      description: 'Completes a task or responds to a question',
+      executionMode: 'axagent', // "axagent" | "axgen"
+      signature: 'task:string -> reply:string',
+      provider: 'openai',
+      providerKeyName: 'OPENAI_API_KEY',
       ai: {
-        model: "gpt-4o-mini",
-        temperature: 0.7
-      }
-    }
-  ]
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+      },
+    },
+  ],
 };
 
-// Create a new instance of AxCrew
 const crew = new AxCrew(config);
-
-// Initialize all agents
 await crew.addAllAgents();
 
-// Get the Manager agent
-const manager = crew.agents.get("Manager");
+const manager = crew.agents?.get('Manager');
+const { reply } = await manager.forward({
+  task: 'Create a launch plan for a new product feature',
+});
 
-// Use the agent
-const { reply } = await manager.forward({ task: "Create a plan for building a website" });
 console.log(reply);
 ```
 
-## Using a Configuration File
+## RLM Mode (AxAgent)
 
-For larger projects, you might prefer to keep your configuration in a separate JSON file:
+When using `executionMode: "axagent"` with modern Ax RLM behavior, provide `axAgentOptions` with required fields:
 
-```json title="agentConfig.json"
-{
-  "crew": [
-    {
-      "name": "Manager",
-      "description": "Completes a task or responds to a question",
-      "signature": "task:string \"task or question from the user\" -> reply:string \"detailed response addressing the user's task\"",
-      "provider": "openai",
-      "providerKeyName": "OPENAI_API_KEY",
-      "ai": {
-        "model": "gpt-4o-mini",
-        "temperature": 0.7
-      }
-    }
-  ]
-}
-```
-
-You can then load the configuration from the file:
+- `axAgentOptions.runtime`: `AxJSRuntime`
+- `axAgentOptions.contextFields`: required (empty array allowed)
 
 ```typescript
-import { AxCrew } from '@amitdeshmukh/ax-crew';
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
 
-// Create a new instance of AxCrew using a config file
-const configFilePath = './agentConfig.json';
-const crew = new AxCrew(configFilePath);
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
 
-// Initialize all agents
-await crew.addAllAgents();
+const rlmConfig = {
+  crew: [
+    {
+      name: 'Analyzer',
+      description: 'Analyzes runtime-backed context',
+      executionMode: 'axagent',
+      signature: 'context:string, query:string -> answer:string',
+      provider: 'google-gemini',
+      providerKeyName: 'GEMINI_API_KEY',
+      ai: { model: 'gemini-2.5-flash', temperature: 0 },
+      axAgentOptions: {
+        runtime,
+        contextFields: ['context'],
+      },
+    },
+  ],
+};
 ```
+
+The external API does not change. Continue to call `forward` / `streamingForward`; AxCrew routes internally by `executionMode`.
+
+## Verify Cost/Tracing With RLM Examples
+
+- [`examples/rlm-long-task.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-long-task.ts)
+- [`examples/rlm-shared-fields.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-shared-fields.ts)
+
+Both print per-agent and crew metrics at the end.
 
 ## Next Steps
 
-- Learn how to [configure agents](/docs/core-concepts/agent-configuration) in detail
-- Learn more about [Crew Configuration](/docs/core-concepts/crew-configuration)
-- Integrate [MCP Servers](/docs/advanced-features/mcp-integration)
-- Explore [creating custom functions](/docs/core-concepts/creating-functions) to enhance your agents
-- See how to manage [state across agents](/docs/core-concepts/state-management) in a crew
-- Check out the [examples](https://github.com/amitdeshmukh/ax-crew/tree/main/examples) for more use cases
+- [Agent Configuration](/docs/core-concepts/agent-configuration)
+- [Crew Configuration](/docs/core-concepts/crew-configuration)
+- [Execution Modes and RLM](/docs/advanced-features/execution-modes-rlm)
+- [Cost Tracking](/docs/advanced-features/cost-tracking)
+- [Telemetry](/docs/advanced-features/telemetry)
+- [Examples](https://github.com/amitdeshmukh/ax-crew/tree/main/examples)

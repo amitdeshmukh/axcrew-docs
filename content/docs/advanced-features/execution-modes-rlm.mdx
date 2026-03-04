@@ -1,0 +1,95 @@
+---
+title: Execution Modes and RLM
+description: Why AxAgent changed, how AxCrew supports RLM, and how to configure executionMode safely
+---
+
+AxCrew supports both modern Ax execution engines per agent:
+
+- `executionMode: "axagent"` (default)
+- `executionMode: "axgen"`
+
+The public call surface is unchanged in both cases. You always call:
+
+- `agent.forward(...)`
+- `agent.streamingForward(...)`
+
+AxCrew routes internally by `executionMode`. There is no external `forwardGen` API requirement.
+
+## Why AxAgent Changed Upstream
+
+Newer Ax versions moved `AxAgent` to an RLM-oriented split architecture:
+
+- Actor/Responder separation
+- Runtime-backed code execution loop
+- richer context handling and recursion controls
+
+AxCrew adopts this by exposing `axAgentOptions` when `executionMode` is `"axagent"`, while preserving AxCrew's existing external API.
+
+## Mandatory RLM Parameters
+
+For RLM mode with `AxAgent` in AxCrew, set these in `axAgentOptions`:
+
+- `axAgentOptions.runtime`: an `AxJSRuntime` instance
+- `axAgentOptions.contextFields`: required (can be an empty array `[]`)
+
+```typescript
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
+
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config = {
+  crew: [
+    {
+      name: 'Analyzer',
+      executionMode: 'axagent',
+      signature: 'context:string, query:string -> answer:string',
+      provider: 'google-gemini',
+      providerKeyName: 'GEMINI_API_KEY',
+      ai: { model: 'gemini-2.5-flash', temperature: 0 },
+      axAgentOptions: {
+        runtime,
+        contextFields: ['context'],
+        maxTurns: 20,
+      },
+    },
+  ],
+};
+```
+
+## AxGen Mode
+
+Use `executionMode: "axgen"` when you want AxGen behavior for an agent. AxCrew still records metrics/costs and keeps the same invocation style.
+
+## Tracing and Cost Reporting
+
+Built-in AxCrew metrics and telemetry continue to work in both execution modes:
+
+- per-agent metrics via `agent.getMetrics?.()`
+- crew metrics via `crew.getCrewMetrics()`
+- reset with `crew.resetCosts()` or `crew.resetCrewMetrics()`
+
+This includes RLM scenarios.
+
+## RLM Examples
+
+Equivalent RLM examples are available in the AxCrew repository:
+
+- [`rlm-long-task.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-long-task.ts)
+  - long-running analysis with context management
+  - prints per-agent and crew costs at the end
+- [`rlm-shared-fields.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-shared-fields.ts)
+  - shared fields and sub-agent propagation in RLM mode
+  - prints per-agent and crew costs at the end
+
+Run locally:
+
+```bash
+npx tsx examples/rlm-long-task.ts
+npx tsx examples/rlm-shared-fields.ts
+```
+
+## Process Exit Note for RLM Examples
+
+RLM runtime uses worker resources under the hood. In runnable examples, explicit top-level process exit handling is used after cleanup to guarantee a deterministic CLI exit.

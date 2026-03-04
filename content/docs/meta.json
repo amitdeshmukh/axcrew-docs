@@ -11,6 +11,7 @@
     "core-concepts/working-with-examples",
     "---Advanced Features---",
     "advanced-features/streaming-responses",
+    "advanced-features/execution-modes-rlm",
     "advanced-features/cost-tracking",
     "advanced-features/mcp-integration",
     "advanced-features/ace",

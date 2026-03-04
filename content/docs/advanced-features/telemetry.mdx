@@ -55,7 +55,6 @@ const meter = metrics.getMeter('my-app');
 const crew = new AxCrew(
   config,
   AxCrewFunctions,
-  undefined,
   {
     telemetry: {
       tracer,
@@ -155,7 +154,7 @@ const config = {
 };
 
 // Create crew with telemetry
-const crew = new AxCrew(config, AxCrewFunctions, undefined, {
+const crew = new AxCrew(config, AxCrewFunctions, {
   telemetry: { tracer, meter }
 });
 
@@ -198,6 +197,19 @@ interface AxCrewOptions {
   }
 }
 ```
+
+## Execution Mode Compatibility
+
+Telemetry works across both execution modes:
+
+- `executionMode: \"axagent\"` (including RLM mode with `axAgentOptions`)
+- `executionMode: \"axgen\"`
+
+See also:
+
+- [`telemetry-demo.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/telemetry-demo.ts)
+- [`rlm-long-task.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-long-task.ts)
+- [`rlm-shared-fields.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-shared-fields.ts)
 
 ## Best Practices
 

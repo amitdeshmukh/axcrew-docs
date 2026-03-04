@@ -3,18 +3,16 @@ title: Crew Configuration
 description: Learn how to configure and work with crews in AxCrew
 ---
 
-## What is a Crew?
+A crew is a collection of agents with shared state and coordinated dependency management.
 
-A Crew in AxCrew is a team of agents that work together to achieve common goals. Crews provide:
+## What a Crew Gives You
 
-- **Shared Context**: All agents in a crew share the same state
-- **Dependency Management**: Crews automatically handle agent dependencies 
-- **Coordinated Execution**: Agents can leverage each other's capabilities
-- **Unified Configuration**: Define all your agents in one place
+- shared state across all agents
+- automatic dependency-aware initialization
+- composition via sub-agents and tools
+- crew-wide metrics and cost reporting
 
-## Crew Configuration Options
-
-A crew is defined by a JSON configuration object that includes all agents:
+## Crew Config Shape
 
 ```json
 {
@@ -22,178 +20,102 @@ A crew is defined by a JSON configuration object that includes all agents:
     {
       "name": "Calculator",
       "description": "Performs mathematical calculations",
+      "executionMode": "axagent",
       "signature": "equation:string -> result:number",
       "provider": "openai",
       "providerKeyName": "OPENAI_API_KEY",
-      "ai": { "model": "gpt-3.5-turbo", "temperature": 0 }
+      "ai": { "model": "gpt-4o-mini", "temperature": 0 }
     },
     {
       "name": "Planner",
-      "description": "Creates a plan to complete a task",
+      "description": "Creates plans",
+      "executionMode": "axgen",
       "signature": "task:string -> plan:string",
       "provider": "google-gemini",
       "providerKeyName": "GEMINI_API_KEY",
-      "ai": { "model": "gemini-1.5-pro", "temperature": 0 }
+      "ai": { "model": "gemini-2.5-flash", "temperature": 0 }
     },
     {
       "name": "Manager",
-      "description": "Manages task execution",
-      "signature": "question:string, plan:string -> answer:string",
+      "description": "Coordinates Planner and Calculator",
+      "signature": "question:string -> answer:string",
       "provider": "anthropic",
       "providerKeyName": "ANTHROPIC_API_KEY",
-      "ai": { "model": "claude-3-sonnet", "temperature": 0.2 },
+      "ai": { "model": "claude-3-7-sonnet-latest", "temperature": 0.2 },
       "agents": ["Planner", "Calculator"]
     }
   ]
 }
 ```
 
-## Initializing a Crew
-
-You can initialize a crew in multiple ways:
+## Initialize a Crew
 
 ```typescript
 import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
 
-// Using a direct configuration object
-const config = {
-  crew: [
-    // Agent configurations
-  ]
-};
 const crew = new AxCrew(config, AxCrewFunctions);
 ```
 
-The second parameter is a function registry that provides tools available to your agents.
+## Add Agents
 
-## Adding Agents to a Crew
-
-There are three ways to add agents to your crew:
-
-### Method 1: Add All Agents
+### Add all
 
 ```typescript
-// Initialize all agents defined in the config
 await crew.addAllAgents();
-
-// Get agent instances
-const planner = crew.agents?.get("Planner");
-const manager = crew.agents?.get("Manager");
 ```
 
-This method:
-- Reads all agents from your configuration
-- Automatically determines the correct initialization order based on dependencies
-- Initializes all agents in the proper sequence
-
-### Method 2: Add Multiple Agents with Dependencies
+### Add selected (dependency-aware)
 
 ```typescript
-// Add multiple agents - dependencies will be handled automatically
-await crew.addAgentsToCrew(['Manager', 'Planner', 'Calculator']);
-
-// Or add them in multiple steps - order doesn't matter
-await crew.addAgentsToCrew(['Calculator']); // Will be initialized first
-await crew.addAgentsToCrew(['Manager']);    // Will initialize dependencies
+await crew.addAgentsToCrew(['Manager']);
 ```
 
-### Method 3: Add Individual Agents
+### Add one (manual dependency handling)
 
 ```typescript
-// Add agents one by one - you must handle dependencies manually
-await crew.addAgent('Calculator'); // Add base agent first
-await crew.addAgent('Planner');    // Then its dependent
-await crew.addAgent('Manager');    // Then agents that depend on both
+await crew.addAgent('Calculator');
 ```
 
-## Shared State in Crews
-
-One of the most powerful features of crews is shared state. All agents in a crew have access to the same state:
+## Shared State
 
 ```typescript
-// Set state at crew level
-crew.state.set('name', 'Crew1');
-crew.state.set('location', 'Earth');
+crew.state.set('project', 'alpha');
 
-// Access from any agent
-const planner = crew.agents.get("Planner");
-planner.state.get('name'); // 'Crew1'
+const planner = crew.agents?.get('Planner');
+planner?.state.set('plan', 'v1');
 
-// Set state from an agent
-planner.state.set('plan', 'Fly to Mars');
-
-// Access the updated state from another agent
-const manager = crew.agents.get("Manager");
-manager.state.getAll(); // { name: 'Crew1', location: 'Earth', plan: 'Fly to Mars' }
+const manager = crew.agents?.get('Manager');
+console.log(manager?.state.getAll());
 ```
 
-## Dependency Management
+## Metrics and Cost Tracking
 
-Crews handle agent dependencies intelligently:
-
-```typescript
-{
-  "name": "Manager",
-  // ... other config ...
-  "agents": ["Planner", "Calculator"] // Dependencies
-}
-```
-
-When a dependent agent (like Manager) is initialized, the crew ensures all its dependencies (Planner and Calculator) are initialized first.
-
-## Task Execution Example
-
-Here's how you might use a crew to solve a problem:
+Use metrics APIs instead of legacy aggregated-cost APIs:
 
 ```typescript
-import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+const manager = crew.agents?.get('Manager');
+await manager?.forward({ question: 'How should we ship this?' });
 
-// Create and initialize the crew
-const crew = new AxCrew(config, AxCrewFunctions);
-await crew.addAgentsToCrew(['Planner', 'Calculator', 'Manager']);
+// Per-agent
+const managerMetrics = (manager as any)?.getMetrics?.();
+console.log(managerMetrics?.estimatedCostUSD);
 
-// Get agent instances
-const planner = crew.agents.get("Planner");
-const manager = crew.agents.get("Manager");
+// Crew-wide
+const crewMetrics = crew.getCrewMetrics();
+console.log(crewMetrics.estimatedCostUSD);
+console.log(crewMetrics.tokens.totalTokens);
 
-// User query
-const userQuery = "What's the square root of the number of days until Christmas?";
-
-// Execute the task in stages
-const planResponse = await planner.forward({ task: userQuery });
-const managerResponse = await manager.forward({ 
-  question: userQuery, 
-  plan: planResponse.plan 
-});
-
-console.log(`Plan: ${planResponse.plan}`);
-console.log(`Answer: ${managerResponse.answer}`);
-```
-
-## Tracking Crew Costs
-
-The AxCrew system provides detailed cost tracking:
-
-```typescript
-// Get aggregated costs for all agents in the crew
-const crewCosts = crew.getAggregatedCosts();
-console.log(crewCosts);
-/*
-{
-  totalCost: "0.0025482500000",
-  byAgent: {
-    "Planner": { ... },
-    "Calculator": { ... },
-    "Manager": { ... }
-  },
-  aggregatedMetrics: {
-    promptTokens: 850,
-    completionTokens: 324,
-    totalTokens: 1174
-  }
-}
-*/
-
-// Reset cost tracking if needed
+// Reset when needed
 crew.resetCosts();
 ```
+
+## Cleanup
+
+```typescript
+crew.destroy();
+```
+
+For runtime-heavy RLM examples, see:
+
+- [`rlm-long-task.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-long-task.ts)
+- [`rlm-shared-fields.ts`](https://github.com/amitdeshmukh/ax-crew/blob/main/examples/rlm-shared-fields.ts)
