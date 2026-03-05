@@ -11,7 +11,7 @@ Each agent in your crew is defined by a configuration object.
 {
   name: "AgentName",                     // Required
   description: "What this agent does",   // Required
-  executionMode: "axagent",              // Optional: "axagent" | "axgen" (default: axagent)
+  executionMode: "axgen",                // Optional: "axagent" | "axgen" (default: axgen)
   signature: "input:type -> output:type",// Required
   provider: "openai",                    // Required
   providerKeyName: "OPENAI_API_KEY",     // Required
@@ -46,8 +46,8 @@ Each agent in your crew is defined by a configuration object.
 
 Each agent can run in one of two modes:
 
-- `axagent` (default): modern AxAgent capabilities, including RLM features
-- `axgen`: AxGen execution
+- `axgen` (default): AxGen execution
+- `axagent`: modern AxAgent capabilities, including RLM features
 
 ```json
 {
