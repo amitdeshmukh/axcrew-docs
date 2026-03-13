@@ -59,6 +59,24 @@ addAgent(agentName: string): Promise<void>
 
 Adds a single agent by name. Manual dependency ordering required.
 
+### `addLazyAgent(agentName)`
+
+```typescript
+addLazyAgent(agentName: string): void
+```
+
+Adds a lightweight proxy for the agent. The tool schema (name, description, parameters) is built immediately from the crew config, but the full agent — including MCP server connections, AI client setup, and function resolution — is only created when the agent is first invoked.
+
+Use this for sub-agents that may not be needed on every request, especially those with stdio MCP servers that spawn a process on init.
+
+```typescript
+// Eager: spawns the npx MCP server immediately
+await crew.addAgent('CreateChart');
+
+// Lazy: instant — MCP server only starts if Manager delegates to CreateChart
+crew.addLazyAgent('CreateChart');
+```
+
 ### `addAgentsToCrew(agentNames)`
 
 ```typescript
