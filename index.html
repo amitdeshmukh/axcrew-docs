@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AxCrew - Multi-Agent AI with JSON Config</title>
+  <meta name="description" content="Stop wiring agents by hand. One JSON config — your agents collaborate, share state, use tools, and track costs out of the box.">
+  <meta property="og:title" content="AxCrew - Multi-Agent AI with JSON Config">
+  <meta property="og:description" content="Stop wiring agents by hand. One JSON config — your agents collaborate, share state, use tools, and track costs out of the box.">
+  <meta property="og:url" content="https://axcrew.dev">
+  <meta property="og:site_name" content="AxCrew">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@amitdeshmukh">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(99,102,241,0.2); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .dark ::-webkit-scrollbar-thumb { background: #374151; }
+
+    /* Hero image blending — light mode */
+    .hero-bg { background: url('public/hero.webp') center bottom / cover no-repeat; }
+    .hero-fade-top {
+      background: linear-gradient(to bottom, #fff 0%, #fff 45%, rgba(255,255,255,0.95) 58%, rgba(255,255,255,0.7) 75%, transparent 100%);
+    }
+    .hero-fade-bottom {
+      background: linear-gradient(to top, #fff 0%, rgba(255,255,255,0.9) 50%, transparent 100%);
+    }
+    /* Hero image blending — dark mode */
+    .dark .hero-fade-top {
+      background: linear-gradient(to bottom, #111827 0%, #111827 40%, rgba(17,24,39,0.92) 55%, rgba(17,24,39,0.5) 78%, transparent 100%);
+    }
+    .dark .hero-fade-bottom {
+      background: linear-gradient(to top, #111827 0%, rgba(17,24,39,0.85) 40%, transparent 100%);
+    }
+
+    /* Dot grid */
+    .dot-grid {
+      background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .dark .dot-grid {
+      background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Code syntax — always dark */
+    .syn-kw { color: #C586C0; }
+    .syn-str { color: #CE9178; }
+    .syn-num { color: #B5CEA8; }
+    .syn-cls { color: #4EC9B0; }
+    .syn-cmt { color: #6A9955; }
+    .syn-def { color: #D4D4D4; }
+    .syn-ln { color: rgba(255,255,255,0.15); user-select: none; font-size: 12px; }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+      50% { box-shadow: 0 0 16px rgba(34,197,94,0.6); }
+    }
+    .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+  </style>
+  <script>
+    // Theme: respect system pref, allow toggle, persist choice
+    (function() {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="text-lg font-bold tracking-tight">ax-crew<span class="text-indigo-500">.</span></a>
+      <div class="flex items-center gap-4">
+        <a href="https://github.com/amitdeshmukh/ax-crew" target="_blank" rel="noopener" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">GitHub</a>
+        <a href="https://github.com/amitdeshmukh/ax-crew/tree/main/src/skills" target="_blank" rel="noopener" class="text-sm px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors">Skills</a>
+        <a href="https://twitter.com/amitdeshmukh" target="_blank" rel="noopener" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors inline-flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <!-- Dark mode toggle -->
+        <button onclick="document.documentElement.classList.toggle('dark'); localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light')" class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Toggle theme">
+          <!-- Sun (visible in dark) -->
+          <svg class="w-4 h-4 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <!-- Moon (visible in light) -->
+          <svg class="w-4 h-4 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================================ -->
+  <!-- 1. HERO — "What's in it for me?" (the WHY)  -->
+  <!-- ============================================ -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-14">
+    <!-- Background layers -->
+    <div class="absolute inset-0">
+      <div class="absolute inset-0 dot-grid opacity-[0.04]"></div>
+      <!-- Ambient blurs -->
+      <div class="absolute top-1/4 -left-32 w-96 h-96 bg-indigo-500/[0.06] dark:bg-indigo-500/[0.07] rounded-full blur-3xl"></div>
+      <div class="absolute bottom-1/4 -right-32 w-80 h-80 bg-purple-500/[0.06] dark:bg-purple-500/[0.07] rounded-full blur-3xl"></div>
+      <div class="absolute top-2/3 left-1/3 w-64 h-64 bg-cyan-500/[0.04] rounded-full blur-3xl"></div>
+      <!-- Hero image -->
+      <div class="absolute inset-0 hero-bg z-[1]"></div>
+      <!-- Gradient overlays -->
+      <div class="absolute inset-x-0 top-0 h-[80%] hero-fade-top z-[2]"></div>
+      <div class="absolute inset-x-0 bottom-0 h-32 hero-fade-bottom z-[2]"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="relative z-10 max-w-4xl mx-auto px-6 text-center" style="text-shadow: 0 0 40px rgba(255,255,255,0.15), 0 0 80px rgba(255,255,255,0.05);">
+
+      <!-- Headline -->
+      <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+        <span class="bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 bg-clip-text text-transparent">Deploy AI teams</span>
+        <br>
+        <span class="text-gray-900 dark:text-white">that run your business</span>
+        <br>
+        <span class="text-gray-900 dark:text-white">&amp; learn non-stop.</span>
+      </h1>
+
+      <!-- Tagline -->
+      <p class="text-xl sm:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-4 leading-relaxed font-medium">
+        If your language model can write JSON, it can build complex agent workflows.
+      </p>
+
+      <p class="text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-6">
+        One config. Your agents collaborate, share state, use tools,
+        and track costs &mdash; out of the box.
+      </p>
+
+      <!-- Key features inline -->
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>Auto-installs Claude &amp; Codex Skills</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>MCP Server Support</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>15+ LLM Providers</span>
+      </div>
+
+      <!-- Install — cycling commands -->
+      <div class="inline-flex items-center gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mb-6 cursor-pointer select-none" onclick="cycleInstall()" id="install-box">
+        <code class="font-mono text-sm text-gray-500 dark:text-gray-400" id="install-cmd">
+          <span class="text-gray-400 dark:text-gray-500">$</span> npm install <span class="text-indigo-600 dark:text-indigo-400 font-medium">@amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools</span>
+        </code>
+        <button onclick="event.stopPropagation(); copyInstall()" class="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label="Copy">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        </button>
+      </div>
+
+      <!-- CTAs -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+        <a href="https://github.com/amitdeshmukh/ax-crew" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-7 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-base transition-all hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+
+      <!-- Social proof badges -->
+      <div class="flex flex-wrap items-center justify-center gap-2.5">
+        <a href="https://github.com/amitdeshmukh/ax-crew/stargazers" target="_blank" rel="noopener">
+          <img src="https://img.shields.io/github/stars/amitdeshmukh/ax-crew?style=for-the-badge&logo=github&logoColor=white&label=Stars&color=f59e0b&labelColor=1a1a2e" alt="GitHub stars" class="h-7 rounded-md">
+        </a>
+        <a href="https://www.npmjs.com/package/@amitdeshmukh/ax-crew" target="_blank" rel="noopener">
+          <img src="https://img.shields.io/npm/v/@amitdeshmukh/ax-crew?style=for-the-badge&logo=npm&logoColor=white&label=Version&color=6366f1&labelColor=1a1a2e" alt="npm version" class="h-7 rounded-md">
+        </a>
+        <a href="https://www.npmjs.com/package/@amitdeshmukh/ax-crew" target="_blank" rel="noopener">
+          <img src="https://img.shields.io/npm/dm/@amitdeshmukh/ax-crew?style=for-the-badge&logo=npm&logoColor=white&label=Downloads&color=22c55e&labelColor=1a1a2e" alt="npm downloads" class="h-7 rounded-md">
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 2. "What can I achieve with this?"           -->
+  <!-- ============================================ -->
+
+  <!-- Code Demo — side by side -->
+  <section class="py-20 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid lg:grid-cols-5 gap-4 items-start">
+
+        <!-- Left: crew.ts (3/5 width) -->
+        <div class="lg:col-span-3 relative">
+          <div class="rounded-xl overflow-hidden border border-gray-800 shadow-2xl" style="background:#0d0d0d">
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
+              <div class="flex gap-1.5"><div class="w-3 h-3 rounded-full bg-red-500/70"></div><div class="w-3 h-3 rounded-full bg-yellow-500/70"></div><div class="w-3 h-3 rounded-full bg-green-500/70"></div></div>
+              <span class="ml-3 text-xs font-mono text-gray-500">crew.ts</span>
+            </div>
+            <div class="p-5 overflow-x-auto">
+<pre class="text-[13px] leading-relaxed font-mono"><code><span class="syn-kw">import</span><span class="syn-def"> { </span><span class="syn-cls">AxCrew</span><span class="syn-def"> } </span><span class="syn-kw">from</span><span class="syn-def"> </span><span class="syn-str">'@amitdeshmukh/ax-crew'</span><span class="syn-def">;</span>
+<span class="syn-cmt">// ACE is optional. Without it, agents</span>
+<span class="syn-cmt">// work perfectly — they just don't</span>
+<span class="syn-cmt">// learn between sessions.</span>
+
+<span class="syn-kw">const</span><span class="syn-def"> crew = </span><span class="syn-kw">new</span><span class="syn-def"> </span><span class="syn-cls">AxCrew</span><span class="syn-def">({</span>
+<span class="syn-def">  crew: [{</span>
+<span class="syn-def">    name: </span><span class="syn-str">"PolicyLookup"</span><span class="syn-def">,</span>
+<span class="syn-def">    description: </span><span class="syn-str">"Finds relevant company policies"</span><span class="syn-def">,</span>
+<span class="syn-def">    signature: </span><span class="syn-str">"issue:string -&gt; policy:string"</span><span class="syn-def">,</span>
+<span class="syn-def">    provider: </span><span class="syn-str">"openai"</span><span class="syn-def">,</span>
+<span class="syn-def">    providerKeyName: </span><span class="syn-str">"OPENAI_API_KEY"</span><span class="syn-def">,</span>
+<span class="syn-def">    ai: { model: </span><span class="syn-str">"gpt-5.4"</span><span class="syn-def"> },</span>
+<span class="syn-def">    functions: [</span><span class="syn-str">"SearchKnowledgeBase"</span><span class="syn-def">]</span>
+<span class="syn-def">  }, {</span>
+<span class="syn-def">    name: </span><span class="syn-str">"SupportAgent"</span><span class="syn-def">,</span>
+<span class="syn-def">    description: </span><span class="syn-str">"Resolves support tickets"</span><span class="syn-def">,</span>
+<span class="syn-def">    signature: </span><span class="syn-str">"ticket:string -&gt; response:string"</span><span class="syn-def">,</span>
+<span class="syn-def">    provider: </span><span class="syn-str">"anthropic"</span><span class="syn-def">,</span>
+<span class="syn-def">    providerKeyName: </span><span class="syn-str">"ANTHROPIC_API_KEY"</span><span class="syn-def">,</span>
+<span class="syn-def">    ai: { model: </span><span class="syn-str">"claude-sonnet-4-6"</span><span class="syn-def"> },</span>
+<span class="syn-def">    agents: [</span><span class="syn-str">"PolicyLookup"</span><span class="syn-def">],</span>
+<span class="syn-def">    functions: [</span><span class="syn-str">"CreateTicket"</span><span class="syn-def">, </span><span class="syn-str">"SendEmail"</span><span class="syn-def">],</span>
+
+<span class="syn-def">    </span><span class="syn-cmt">// Optional: ACE makes agents learn</span>
+<span class="syn-def">    ace: {</span>
+<span class="syn-def">      persistence: {</span>
+<span class="syn-def">        playbookPath: </span><span class="syn-str">"./playbook.json"</span>
+<span class="syn-def">      }</span>
+<span class="syn-def">    }</span>
+<span class="syn-def">  }]</span>
+<span class="syn-def">});</span>
+
+<span class="syn-kw">await</span><span class="syn-def"> crew.addAllAgents();</span>
+<span class="syn-kw">const</span><span class="syn-def"> support = crew.agents.get(</span><span class="syn-str">"SupportAgent"</span><span class="syn-def">)!;</span>
+<span class="syn-kw">await</span><span class="syn-def"> support.initACE(); </span><span class="syn-cmt">// optional</span>
+
+<span class="syn-cmt">// Resolve a ticket</span>
+<span class="syn-kw">const</span><span class="syn-def"> { response } = </span><span class="syn-kw">await</span><span class="syn-def"> support.forward({</span>
+<span class="syn-def">  ticket: </span><span class="syn-str">"Charged twice for my sub"</span>
+<span class="syn-def">});</span>
+
+<span class="syn-cmt">// Teach it — remembers next time</span>
+<span class="syn-kw">await</span><span class="syn-def"> support.applyOnlineUpdate({</span>
+<span class="syn-def">  example:    { ticket: </span><span class="syn-str">"charged twice"</span><span class="syn-def"> },</span>
+<span class="syn-def">  prediction: { response },</span>
+<span class="syn-def">  feedback:   </span><span class="syn-str">"Always offer a refund"</span>
+<span class="syn-def">});</span></code></pre>
+            </div>
+          </div>
+          <!-- Floating label -->
+          <div class="absolute -bottom-4 left-1/2 -translate-x-1/2">
+            <span class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-400 shadow-lg">
+              <span class="w-2 h-2 rounded-full bg-green-500 pulse-glow"></span>
+              That's it. Your crew is ready.
+            </span>
+          </div>
+        </div>
+
+        <!-- Right: playbook.json (2/5 width) -->
+        <div class="lg:col-span-2">
+          <div class="rounded-xl overflow-hidden border border-gray-800 shadow-2xl" style="background:#0d0d0d">
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
+              <div class="flex gap-1.5"><div class="w-3 h-3 rounded-full bg-red-500/70"></div><div class="w-3 h-3 rounded-full bg-yellow-500/70"></div><div class="w-3 h-3 rounded-full bg-green-500/70"></div></div>
+              <span class="ml-3 text-xs font-mono text-gray-500">playbook.json</span>
+              <span class="ml-auto text-[10px] font-mono px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">auto-generated by ACE</span>
+            </div>
+            <div class="p-5 overflow-x-auto">
+<pre class="text-[13px] leading-relaxed font-mono"><code><span class="syn-cmt">// ACE learns rules from human feedback</span>
+<span class="syn-cmt">// and persists them across sessions.</span>
+<span class="syn-cmt">// This file is auto-managed.</span>
+
+<span class="syn-def">{</span>
+<span class="syn-def">  </span><span class="syn-str">"sections"</span><span class="syn-def">: {</span>
+<span class="syn-def">    </span><span class="syn-str">"billing"</span><span class="syn-def">: {</span>
+<span class="syn-def">      </span><span class="syn-str">"bullets"</span><span class="syn-def">: [</span>
+<span class="syn-def">        {</span>
+<span class="syn-def">          </span><span class="syn-str">"text"</span><span class="syn-def">: </span><span class="syn-str">"Always offer a</span>
+<span class="syn-str">            refund for billing</span>
+<span class="syn-str">            errors"</span><span class="syn-def">,</span>
+<span class="syn-def">          </span><span class="syn-str">"source"</span><span class="syn-def">: </span><span class="syn-str">"feedback"</span>
+<span class="syn-def">        },</span>
+<span class="syn-def">        {</span>
+<span class="syn-def">          </span><span class="syn-str">"text"</span><span class="syn-def">: </span><span class="syn-str">"Escalate repeat</span>
+<span class="syn-str">            billing issues to</span>
+<span class="syn-str">            finance team"</span><span class="syn-def">,</span>
+<span class="syn-def">          </span><span class="syn-str">"source"</span><span class="syn-def">: </span><span class="syn-str">"feedback"</span>
+<span class="syn-def">        }</span>
+<span class="syn-def">      ]</span>
+<span class="syn-def">    },</span>
+<span class="syn-def">    </span><span class="syn-str">"tone"</span><span class="syn-def">: {</span>
+<span class="syn-def">      </span><span class="syn-str">"bullets"</span><span class="syn-def">: [</span>
+<span class="syn-def">        {</span>
+<span class="syn-def">          </span><span class="syn-str">"text"</span><span class="syn-def">: </span><span class="syn-str">"Use empathetic</span>
+<span class="syn-str">            language for</span>
+<span class="syn-str">            frustrated customers"</span><span class="syn-def">,</span>
+<span class="syn-def">          </span><span class="syn-str">"source"</span><span class="syn-def">: </span><span class="syn-str">"feedback"</span>
+<span class="syn-def">        }</span>
+<span class="syn-def">      ]</span>
+<span class="syn-def">    }</span>
+<span class="syn-def">  }</span>
+<span class="syn-def">}</span></code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Capabilities -->
+  <section class="py-20 bg-white dark:bg-gray-900">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">What you get</h2>
+      <p class="text-gray-500 dark:text-gray-400 text-center mb-14 max-w-lg mx-auto">Everything you need to ship multi-agent systems. Nothing you don't.</p>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Config-First</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Define your entire crew in JSON. Agents, providers, tools, sub-agents &mdash; all config.</p>
+        </div>
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">ACE Learning</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents learn from feedback. Playbooks persist and improve over time.</p>
+        </div>
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Sandboxed Code Execution</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents write and run code in AxJSRuntime. Permission-controlled, data never leaves your environment.</p>
+        </div>
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Shared State</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents read and write to a shared key/value store. Coordinate without ceremony.</p>
+        </div>
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">MCP Support</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Connect any MCP server. STDIO, HTTP SSE, Streamable HTTP &mdash; all three transports.</p>
+        </div>
+        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Cost Tracking</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Per-agent and crew-level metrics. Tokens, requests, estimated USD &mdash; always visible.</p>
+        </div>
+      </div>
+
+      <!-- Providers -->
+      <div class="text-center pt-8 border-t border-gray-200 dark:border-gray-800">
+        <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-5">Works with every major provider</p>
+        <div class="flex flex-wrap justify-center gap-2.5 text-sm font-mono font-medium">
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">OpenAI</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Anthropic</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Google Gemini</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Azure</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Groq</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Together</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Mistral</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Cohere</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Ollama</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">DeepSeek</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Perplexity</span>
+          <span class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 shadow-sm">Grok</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 3. "How do I use this? Is it easy?"          -->
+  <!-- ============================================ -->
+
+  <!-- Skills -->
+  <section class="py-20 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">Your AI already knows how to use this.</h2>
+        <p class="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-8">
+          16 skill files auto-install into Claude Code &amp; Codex.
+          <br>
+          <span class="text-indigo-600 dark:text-indigo-400">Ask your AI to build an agent crew. It just works.</span>
+        </p>
+        <a href="#get-started"
+           class="inline-flex items-center gap-2 px-7 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold text-base transition-all hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02]">
+          Get Started
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+        </a>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-16" id="skills-grid"></div>
+
+      <!-- Getting Started -->
+      <div class="max-w-4xl mx-auto">
+        <h3 id="get-started" class="text-2xl font-bold text-center mb-10 scroll-mt-20">Up and running in 60 seconds.</h3>
+
+        <!-- Step 1: Install -->
+        <div class="mb-4">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="flex-shrink-0 w-7 h-7 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center font-bold text-xs">1</span>
+            <p class="font-semibold text-sm">Install</p>
+          </div>
+          <div class="relative group rounded-xl overflow-hidden border border-gray-800 shadow-lg" style="background:#0d0d0d">
+            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-800">
+              <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-green-500/70"></div></div>
+              <span class="ml-2 text-xs font-mono text-gray-500">terminal</span>
+            </div>
+            <pre class="p-4 text-sm font-mono text-gray-300 overflow-x-auto" id="step1-code"><span class="text-gray-500">$</span> npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools</pre>
+            <button onclick="navigator.clipboard.writeText('npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools')" class="absolute top-2 right-2 p-1.5 rounded-md bg-gray-800/80 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-300" aria-label="Copy"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Step 2: Create crew.ts -->
+        <div class="mb-4">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="flex-shrink-0 w-7 h-7 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center font-bold text-xs">2</span>
+            <p class="font-semibold text-sm">Create <code class="text-xs font-mono text-indigo-600 dark:text-indigo-400">crew.ts</code></p>
+          </div>
+          <div class="relative group rounded-xl overflow-hidden border border-gray-800 shadow-lg" style="background:#0d0d0d">
+            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-800">
+              <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-green-500/70"></div></div>
+              <span class="ml-2 text-xs font-mono text-gray-500">crew.ts</span>
+            </div>
+<pre class="p-4 text-[13px] font-mono leading-relaxed overflow-x-auto" id="step2-code"><code><span class="syn-kw">import</span><span class="syn-def"> { </span><span class="syn-cls">AxCrew</span><span class="syn-def"> } </span><span class="syn-kw">from</span><span class="syn-def"> </span><span class="syn-str">'@amitdeshmukh/ax-crew'</span><span class="syn-def">;</span>
+<span class="syn-kw">import</span><span class="syn-def"> { </span><span class="syn-cls">AxJSRuntime</span><span class="syn-def">, </span><span class="syn-cls">AxJSRuntimePermission</span><span class="syn-def"> } </span><span class="syn-kw">from</span><span class="syn-def"> </span><span class="syn-str">'@ax-llm/ax'</span><span class="syn-def">;</span>
+
+<span class="syn-cmt">// AxJSRuntime: sandboxed code execution.</span>
+<span class="syn-cmt">// The agent writes JS to analyze your data,</span>
+<span class="syn-cmt">// but runs it locally in a controlled sandbox.</span>
+<span class="syn-cmt">// Your data never leaves your environment.</span>
+<span class="syn-cmt">// Permissions control what code can access.</span>
+<span class="syn-kw">const</span><span class="syn-def"> runtime = </span><span class="syn-kw">new</span><span class="syn-def"> </span><span class="syn-cls">AxJSRuntime</span><span class="syn-def">({</span>
+<span class="syn-def">  permissions: [</span>
+<span class="syn-def">    </span><span class="syn-cls">AxJSRuntimePermission</span><span class="syn-def">.TIMING,</span>
+<span class="syn-def">    </span><span class="syn-cmt">// No network, no filesystem, no eval</span>
+<span class="syn-def">    </span><span class="syn-cmt">// — only what you explicitly allow.</span>
+<span class="syn-def">  ]</span>
+<span class="syn-def">});</span>
+
+<span class="syn-kw">const</span><span class="syn-def"> crew = </span><span class="syn-kw">new</span><span class="syn-def"> </span><span class="syn-cls">AxCrew</span><span class="syn-def">({</span>
+<span class="syn-def">  crew: [{</span>
+<span class="syn-def">    name: </span><span class="syn-str">"Analyzer"</span><span class="syn-def">,</span>
+<span class="syn-def">    description: </span><span class="syn-str">"Analyzes data with code execution"</span><span class="syn-def">,</span>
+
+<span class="syn-def">    </span><span class="syn-cmt">// DSPy signature: typed inputs → typed outputs</span>
+<span class="syn-def">    signature: </span><span class="syn-str">"data:string, query:string -&gt; answer:string"</span><span class="syn-def">,</span>
+
+<span class="syn-def">    provider: </span><span class="syn-str">"anthropic"</span><span class="syn-def">,</span>
+<span class="syn-def">    providerKeyName: </span><span class="syn-str">"ANTHROPIC_API_KEY"</span><span class="syn-def">,</span>
+<span class="syn-def">    ai: { model: </span><span class="syn-str">"claude-sonnet-4-6"</span><span class="syn-def"> },</span>
+
+<span class="syn-def">    </span><span class="syn-cmt">// "axagent" = RLM mode: the agent reasons,</span>
+<span class="syn-def">    </span><span class="syn-cmt">// writes code, executes it, and iterates.</span>
+<span class="syn-def">    executionMode: </span><span class="syn-str">"axagent"</span><span class="syn-def">,</span>
+
+<span class="syn-def">    axAgentOptions: {</span>
+<span class="syn-def">      </span><span class="syn-cmt">// "data" is treated as semantic context —</span>
+<span class="syn-def">      </span><span class="syn-cmt">// compressed and managed automatically,</span>
+<span class="syn-def">      </span><span class="syn-cmt">// never sent raw to the LLM.</span>
+<span class="syn-def">      contextFields: [</span><span class="syn-str">"data"</span><span class="syn-def">],</span>
+
+<span class="syn-def">      </span><span class="syn-cmt">// The sandboxed runtime from above</span>
+<span class="syn-def">      runtime,</span>
+<span class="syn-def">      maxTurns: </span><span class="syn-num">20</span><span class="syn-def">,</span>
+
+<span class="syn-def">      </span><span class="syn-cmt">// Auto-prune failed reasoning paths</span>
+<span class="syn-def">      </span><span class="syn-cmt">// and re-evaluate with hindsight</span>
+<span class="syn-def">      contextManagement: {</span>
+<span class="syn-def">        errorPruning: </span><span class="syn-num">true</span><span class="syn-def">,</span>
+<span class="syn-def">        hindsightEvaluation: </span><span class="syn-num">true</span>
+<span class="syn-def">      }</span>
+<span class="syn-def">    }</span>
+<span class="syn-def">  }]</span>
+<span class="syn-def">});</span>
+
+<span class="syn-kw">await</span><span class="syn-def"> crew.addAllAgents();</span>
+<span class="syn-kw">const</span><span class="syn-def"> analyzer = crew.agents.get(</span><span class="syn-str">"Analyzer"</span><span class="syn-def">)!;</span>
+
+<span class="syn-cmt">// The agent will:</span>
+<span class="syn-cmt">// 1. Read the data via context fields</span>
+<span class="syn-cmt">// 2. Write JS code to analyze it</span>
+<span class="syn-cmt">// 3. Execute in the sandbox</span>
+<span class="syn-cmt">// 4. Iterate if errors occur</span>
+<span class="syn-cmt">// 5. Return a typed answer</span>
+<span class="syn-kw">const</span><span class="syn-def"> { answer } = </span><span class="syn-kw">await</span><span class="syn-def"> analyzer.forward({</span>
+<span class="syn-def">  data: salesCSV,  </span><span class="syn-cmt">// your data stays local</span>
+<span class="syn-def">  query: </span><span class="syn-str">"Which region grew fastest in Q1?"</span>
+<span class="syn-def">});</span>
+
+<span class="syn-def">console.log(answer);</span>
+<span class="syn-def">console.log(crew.getCrewMetrics());</span></code></pre>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('step2-code').textContent)" class="absolute top-2 right-2 p-1.5 rounded-md bg-gray-800/80 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-300" aria-label="Copy"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Step 3: Run -->
+        <div class="mb-8">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="flex-shrink-0 w-7 h-7 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center font-bold text-xs">3</span>
+            <p class="font-semibold text-sm">Run</p>
+          </div>
+          <div class="relative group rounded-xl overflow-hidden border border-gray-800 shadow-lg" style="background:#0d0d0d">
+            <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-800">
+              <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-yellow-500/70"></div><div class="w-2.5 h-2.5 rounded-full bg-green-500/70"></div></div>
+              <span class="ml-2 text-xs font-mono text-gray-500">terminal</span>
+            </div>
+            <pre class="p-4 text-sm font-mono text-gray-300 overflow-x-auto" id="step3-code"><span class="text-gray-500">$</span> <span class="syn-kw">export</span> ANTHROPIC_API_KEY=sk-ant-...
+<span class="text-gray-500">$</span> npx tsx crew.ts</pre>
+            <button onclick="navigator.clipboard.writeText('export ANTHROPIC_API_KEY=sk-ant-...\nnpx tsx crew.ts')" class="absolute top-2 right-2 p-1.5 rounded-md bg-gray-800/80 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-300" aria-label="Copy"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+
+        <div class="text-center mt-12 py-8 border-t border-gray-200 dark:border-gray-800">
+          <p class="text-2xl font-bold bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 bg-clip-text text-transparent">No framework to learn. No boilerplate to write.</p>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">Just JSON and your imagination.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-16 bg-gray-900 dark:bg-gray-950 text-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="grid sm:grid-cols-3 gap-10 mb-12">
+        <!-- Brand -->
+        <div>
+          <a href="/" class="text-xl font-bold tracking-tight">ax-crew<span class="text-indigo-400">.</span></a>
+          <p class="text-sm text-gray-400 mt-3 leading-relaxed">Deploy AI teams that run your business. Built on <a href="https://axllm.dev" target="_blank" rel="noopener" class="text-indigo-400 hover:text-indigo-300 transition-colors">AxLLM</a>.</p>
+        </div>
+        <!-- Links -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Resources</p>
+          <ul class="space-y-2.5">
+            <li><a href="https://github.com/amitdeshmukh/ax-crew/tree/main/src/skills" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors">Skills</a></li>
+            <li><a href="https://github.com/amitdeshmukh/ax-crew/tree/main/examples" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors">Examples</a></li>
+            <li><a href="https://www.npmjs.com/package/@amitdeshmukh/ax-crew" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors">npm Package</a></li>
+          </ul>
+        </div>
+        <!-- Social -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Connect</p>
+          <ul class="space-y-2.5">
+            <li><a href="https://github.com/amitdeshmukh/ax-crew" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              GitHub
+            </a></li>
+            <li><a href="https://twitter.com/amitdeshmukh" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              X @amitdeshmukh
+            </a></li>
+            <li><a href="https://www.linkedin.com/in/amitdeshmukh/" target="_blank" rel="noopener" class="text-sm text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              LinkedIn
+            </a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-gray-800 text-center">
+        <p class="text-xs text-gray-600">&copy; 2025 Amit Deshmukh &middot; Built on <a href="https://axllm.dev" target="_blank" rel="noopener" class="text-indigo-400/60 hover:text-indigo-400 transition-colors">AxLLM</a> &middot; TypeScript First &middot; Config-Driven Agent Teams</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Cycling install commands
+    const installCmds = [
+      { display: '<span class="text-gray-400 dark:text-gray-500">$</span> npm install <span class="text-indigo-600 dark:text-indigo-400 font-medium">@amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
+      { display: '<span class="text-green-500">&#10003;</span> <span class="text-gray-400 dark:text-gray-500">16 skills auto-installed to</span> <span class="text-indigo-600 dark:text-indigo-400 font-medium">~/.claude/skills/ax-crew/</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
+      { display: '<span class="text-green-500">&#10003;</span> <span class="text-gray-400 dark:text-gray-500">SKILL.md auto-installed to</span> <span class="text-indigo-600 dark:text-indigo-400 font-medium">~/.agents/skills/ax-crew/</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
+    ];
+    let installIdx = 0;
+    function cycleInstall() {
+      installIdx = (installIdx + 1) % installCmds.length;
+      document.getElementById('install-cmd').innerHTML = installCmds[installIdx].display;
+    }
+    function copyInstall() {
+      navigator.clipboard.writeText(installCmds[installIdx].copy);
+    }
+    // Auto-cycle every 4 seconds
+    setInterval(cycleInstall, 4000);
+
+    // Populate skills grid
+    const skills = [
+      ['ax-crew', 'Core class, init, lifecycle'],
+      ['ax-crew-agent-config', 'Every AgentConfig field'],
+      ['ax-crew-signatures', 'DSPy signature types'],
+      ['ax-crew-functions', 'Custom tools & registry'],
+      ['ax-crew-state', 'Shared state across agents'],
+      ['ax-crew-sub-agents', 'Agent composition & delegation'],
+      ['ax-crew-streaming', 'Real-time token streaming'],
+      ['ax-crew-mcp', 'MCP server integration'],
+      ['ax-crew-metrics', 'Cost & usage tracking'],
+      ['ax-crew-execution-modes', 'AxGen vs AxAgent (RLM)'],
+      ['ax-crew-code-execution', 'AxJSRuntime sandbox'],
+      ['ax-crew-ace', 'Feedback learning & playbooks'],
+      ['ax-crew-few-shot', 'In-context learning examples'],
+      ['ax-crew-providers', 'All LLM providers'],
+      ['ax-crew-telemetry', 'OpenTelemetry observability'],
+      ['ax-crew-patterns', 'Multi-agent workflow patterns'],
+    ];
+    const base = 'https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills';
+    const grid = document.getElementById('skills-grid');
+    skills.forEach(([name, desc]) => {
+      const a = document.createElement('a');
+      a.href = `${base}/${name}.md`;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.className = 'group flex items-start gap-3 p-4 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-lg transition-all hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-sm';
+      a.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-mono font-medium text-indigo-600 dark:text-indigo-400 truncate">${name}</span>
+            <svg class="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">${desc}</p>
+        </div>`;
+      grid.appendChild(a);
+    });
+  </script>
+
+</body>
+</html>
