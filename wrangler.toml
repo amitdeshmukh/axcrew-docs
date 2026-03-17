@@ -1,0 +1,5 @@
+name = "axcrew-docs"
+
+[pages]
+build_command = ""
+build_output_dir = "."
