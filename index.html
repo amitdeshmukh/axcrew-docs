@@ -79,6 +79,45 @@
       50% { box-shadow: 0 0 16px rgba(34,197,94,0.6); }
     }
     .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+    /* Staggered hero fade-in */
+    @keyframes hero-fade-up {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero-anim { opacity: 0; animation: hero-fade-up 0.7s ease-out forwards; }
+    .hero-anim-d1 { animation-delay: 0.1s; }
+    .hero-anim-d2 { animation-delay: 0.25s; }
+    .hero-anim-d3 { animation-delay: 0.4s; }
+    .hero-anim-d4 { animation-delay: 0.55s; }
+    .hero-anim-d5 { animation-delay: 0.7s; }
+    .hero-anim-d6 { animation-delay: 0.85s; }
+
+    /* Scroll-triggered reveal */
+    @keyframes reveal-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .reveal { opacity: 0; }
+    .reveal.visible { animation: reveal-up 0.5s ease-out forwards; }
+
+    /* Install command crossfade */
+    @keyframes cmd-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .cmd-fade { animation: cmd-fade-in 0.3s ease-out; }
+
+    /* Shimmer on badge */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer-badge {
+      background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+      background-size: 200% 100%;
+      animation: shimmer 3s ease-in-out infinite;
+    }
   </style>
   <script>
     // Theme: respect system pref, allow toggle, persist choice
@@ -136,32 +175,25 @@
 
       <!-- Headline -->
       <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
-        <span class="bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 bg-clip-text text-transparent">Deploy AI teams</span>
-        <br>
-        <span class="text-gray-900 dark:text-white">that run your business</span>
-        <br>
-        <span class="text-gray-900 dark:text-white">&amp; learn non-stop.</span>
+        <span class="hero-anim hero-anim-d1 block bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 bg-clip-text text-transparent">Deploy AI teams</span>
+        <span class="hero-anim hero-anim-d2 block text-gray-900 dark:text-white">that run your business</span>
+        <span class="hero-anim hero-anim-d3 block text-gray-900 dark:text-white">&amp; learn non-stop.</span>
       </h1>
 
       <!-- Tagline -->
-      <p class="text-xl sm:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-4 leading-relaxed font-medium">
+      <p class="hero-anim hero-anim-d4 text-xl sm:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6 leading-relaxed font-medium">
         If your language model can write JSON, it can build complex agent workflows.
       </p>
 
-      <p class="text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-6">
-        One config. Your agents collaborate, share state, use tools,
-        and track costs &mdash; out of the box.
-      </p>
-
       <!-- Key features inline -->
-      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-8">
+      <div class="hero-anim hero-anim-d4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-8">
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>Auto-installs Claude &amp; Codex Skills</span>
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>MCP Server Support</span>
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>15+ LLM Providers</span>
       </div>
 
       <!-- Install — cycling commands -->
-      <div class="inline-flex items-center gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mb-6 cursor-pointer select-none" onclick="cycleInstall()" id="install-box">
+      <div class="hero-anim hero-anim-d5 inline-flex items-center gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mb-6 cursor-pointer select-none" onclick="cycleInstall()" id="install-box">
         <code class="font-mono text-sm text-gray-500 dark:text-gray-400" id="install-cmd">
           <span class="text-gray-400 dark:text-gray-500">$</span> npm install <span class="text-indigo-600 dark:text-indigo-400 font-medium">@amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools</span>
         </code>
@@ -171,7 +203,7 @@
       </div>
 
       <!-- CTAs -->
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+      <div class="hero-anim hero-anim-d5 flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
         <a href="https://github.com/amitdeshmukh/ax-crew" target="_blank" rel="noopener"
            class="inline-flex items-center gap-2 px-7 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-base transition-all hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md">
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
@@ -180,7 +212,7 @@
       </div>
 
       <!-- Social proof badges -->
-      <div class="flex flex-wrap items-center justify-center gap-2.5">
+      <div class="hero-anim hero-anim-d6 flex flex-wrap items-center justify-center gap-2.5">
         <a href="https://github.com/amitdeshmukh/ax-crew/stargazers" target="_blank" rel="noopener">
           <img src="https://img.shields.io/github/stars/amitdeshmukh/ax-crew?style=for-the-badge&logo=github&logoColor=white&label=Stars&color=f59e0b&labelColor=1a1a2e" alt="GitHub stars" class="h-7 rounded-md">
         </a>
@@ -263,7 +295,7 @@
           </div>
           <!-- Floating label -->
           <div class="absolute -bottom-4 left-1/2 -translate-x-1/2">
-            <span class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-400 shadow-lg">
+            <span class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-400 shadow-lg shimmer-badge">
               <span class="w-2 h-2 rounded-full bg-green-500 pulse-glow"></span>
               That's it. Your crew is ready.
             </span>
@@ -324,46 +356,46 @@
   <!-- Capabilities -->
   <section class="py-20 bg-white dark:bg-gray-900">
     <div class="max-w-6xl mx-auto px-6">
-      <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">What you get</h2>
-      <p class="text-gray-500 dark:text-gray-400 text-center mb-14 max-w-lg mx-auto">Everything you need to ship multi-agent systems. Nothing you don't.</p>
+      <h2 class="reveal text-3xl sm:text-4xl font-bold text-center mb-4">What you get</h2>
+      <p class="reveal text-gray-500 dark:text-gray-400 text-center mb-14 max-w-lg mx-auto">Everything you need to ship multi-agent systems. Nothing you don't.<br>Built with <a href="https://axllm.dev" target="_blank" rel="noopener" class="text-indigo-600 dark:text-indigo-400 hover:underline">AxLLM</a>.</p>
 
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-16" data-stagger="80">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </div>
           <h3 class="text-lg font-semibold mb-2">Config-First</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Define your entire crew in JSON. Agents, providers, tools, sub-agents &mdash; all config.</p>
         </div>
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           </div>
           <h3 class="text-lg font-semibold mb-2">ACE Learning</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents learn from feedback. Playbooks persist and improve over time.</p>
         </div>
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
           <h3 class="text-lg font-semibold mb-2">Sandboxed Code Execution</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents write and run code in AxJSRuntime. Permission-controlled, data never leaves your environment.</p>
         </div>
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
           </div>
           <h3 class="text-lg font-semibold mb-2">Shared State</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Agents read and write to a shared key/value store. Coordinate without ceremony.</p>
         </div>
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
           </div>
           <h3 class="text-lg font-semibold mb-2">MCP Support</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Connect any MCP server. STDIO, HTTP SSE, Streamable HTTP &mdash; all three transports.</p>
         </div>
-        <div class="p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="reveal p-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-xl">
           <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
@@ -401,7 +433,7 @@
   <section class="py-20 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
     <div class="max-w-6xl mx-auto px-6">
       <div class="text-center mb-14">
-        <h2 class="text-3xl sm:text-4xl font-bold mb-4">Your AI already knows how to use this.</h2>
+        <h2 class="reveal text-3xl sm:text-4xl font-bold mb-4">Your AI already knows how to use this.</h2>
         <p class="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-8">
           16 skill files auto-install into Claude Code &amp; Codex.
           <br>
@@ -414,11 +446,11 @@
         </a>
       </div>
 
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-16" id="skills-grid"></div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-16" id="skills-grid" data-stagger="30"></div>
 
       <!-- Getting Started -->
       <div class="max-w-4xl mx-auto">
-        <h3 id="get-started" class="text-2xl font-bold text-center mb-10 scroll-mt-20">Up and running in 60 seconds.</h3>
+        <h3 id="get-started" class="reveal text-2xl font-bold text-center mb-10 scroll-mt-20">Up and running in 60 seconds.</h3>
 
         <!-- Step 1: Install -->
         <div class="mb-4">
@@ -582,7 +614,7 @@
         </div>
       </div>
       <div class="pt-8 border-t border-gray-800 text-center">
-        <p class="text-xs text-gray-600">&copy; 2025 Amit Deshmukh &middot; Built on <a href="https://axllm.dev" target="_blank" rel="noopener" class="text-indigo-400/60 hover:text-indigo-400 transition-colors">AxLLM</a> &middot; TypeScript First &middot; Config-Driven Agent Teams</p>
+        <p class="text-xs text-gray-600">&copy; 2025 Amit Deshmukh &middot; Built on <a href="https://axllm.dev" target="_blank" rel="noopener" class="text-indigo-400/60 hover:text-indigo-400 transition-colors">AxLLM</a> &middot; TypeScript First &middot; Just JSON and your imagination.&trade;</p>
       </div>
     </div>
   </footer>
@@ -597,7 +629,15 @@
     let installIdx = 0;
     function cycleInstall() {
       installIdx = (installIdx + 1) % installCmds.length;
-      document.getElementById('install-cmd').innerHTML = installCmds[installIdx].display;
+      const el = document.getElementById('install-cmd');
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.innerHTML = installCmds[installIdx].display;
+        el.classList.remove('cmd-fade');
+        void el.offsetWidth; // reflow
+        el.classList.add('cmd-fade');
+        el.style.opacity = '1';
+      }, 150);
     }
     function copyInstall() {
       navigator.clipboard.writeText(installCmds[installIdx].copy);
@@ -631,7 +671,7 @@
       a.href = `${base}/${name}.md`;
       a.target = '_blank';
       a.rel = 'noopener';
-      a.className = 'group flex items-start gap-3 p-4 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-lg transition-all hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-sm';
+      a.className = 'reveal group flex items-start gap-3 p-4 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-lg transition-all hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-sm';
       a.innerHTML = `
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
@@ -642,6 +682,25 @@
         </div>`;
       grid.appendChild(a);
     });
+
+    // Scroll-triggered reveal with stagger support
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const parent = el.parentElement;
+        // If parent has data-stagger, delay based on child index
+        if (parent && parent.dataset.stagger) {
+          const idx = Array.from(parent.children).indexOf(el);
+          const delay = parseInt(parent.dataset.stagger) * idx;
+          el.style.animationDelay = `${delay}ms`;
+        }
+        el.classList.add('visible');
+        observer.unobserve(el);
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   </script>
 
 </body>
