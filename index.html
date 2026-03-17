@@ -671,7 +671,7 @@
     // Cycling install commands
     const installCmds = [
       { display: '<span class="text-gray-400 dark:text-gray-500">$</span> npm install <span class="text-indigo-600 dark:text-indigo-400 font-medium">@amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
-      { display: '<span class="text-green-500">&#10003;</span> <span class="text-gray-400 dark:text-gray-500">16 skills auto-installed to</span> <span class="text-indigo-600 dark:text-indigo-400 font-medium">.claude/skills/ax-crew*/SKILL.md</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
+      { display: '<span class="text-green-500">&#10003;</span> <span class="text-gray-400 dark:text-gray-500">16 skills auto-installed to</span> <span class="text-indigo-600 dark:text-indigo-400 font-medium">.claude/skills/axcrew*/SKILL.md</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
       { display: '<span class="text-green-500">&#10003;</span> <span class="text-gray-400 dark:text-gray-500">SKILL.md auto-installed to</span> <span class="text-indigo-600 dark:text-indigo-400 font-medium">.agents/skills/ax-crew/</span>', copy: 'npm install @amitdeshmukh/ax-crew @ax-llm/ax @ax-llm/ax-tools' },
     ];
     let installIdx = 0;
@@ -695,22 +695,22 @@
 
     // Populate skills grid
     const skills = [
-      ['ax-crew', 'Core class, init, lifecycle'],
-      ['ax-crew-agent-config', 'Every AgentConfig field'],
-      ['ax-crew-signatures', 'DSPy signature types'],
-      ['ax-crew-functions', 'Custom tools & registry'],
-      ['ax-crew-state', 'Shared state across agents'],
-      ['ax-crew-sub-agents', 'Agent composition & delegation'],
-      ['ax-crew-streaming', 'Real-time token streaming'],
-      ['ax-crew-mcp', 'MCP server integration'],
-      ['ax-crew-metrics', 'Cost & usage tracking'],
-      ['ax-crew-execution-modes', 'AxGen vs AxAgent (RLM)'],
-      ['ax-crew-code-execution', 'AxJSRuntime sandbox'],
-      ['ax-crew-ace', 'Feedback learning & playbooks'],
-      ['ax-crew-few-shot', 'In-context learning examples'],
-      ['ax-crew-providers', 'All LLM providers'],
-      ['ax-crew-telemetry', 'OpenTelemetry observability'],
-      ['ax-crew-patterns', 'Multi-agent workflow patterns'],
+      ['axcrew', 'Core class, init, lifecycle'],
+      ['axcrew-agent-config', 'Every AgentConfig field'],
+      ['axcrew-signatures', 'DSPy signature types'],
+      ['axcrew-functions', 'Custom tools & registry'],
+      ['axcrew-state', 'Shared state across agents'],
+      ['axcrew-sub-agents', 'Agent composition & delegation'],
+      ['axcrew-streaming', 'Real-time token streaming'],
+      ['axcrew-mcp', 'MCP server integration'],
+      ['axcrew-metrics', 'Cost & usage tracking'],
+      ['axcrew-execution-modes', 'AxGen vs AxAgent (RLM)'],
+      ['axcrew-code-execution', 'AxJSRuntime sandbox'],
+      ['axcrew-ace', 'Feedback learning & playbooks'],
+      ['axcrew-few-shot', 'In-context learning examples'],
+      ['axcrew-providers', 'All LLM providers'],
+      ['axcrew-telemetry', 'OpenTelemetry observability'],
+      ['axcrew-patterns', 'Multi-agent workflow patterns'],
     ];
     const base = 'https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills';
     const grid = document.getElementById('skills-grid');
