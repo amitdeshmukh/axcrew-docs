@@ -1,0 +1,54 @@
+# AxCrew
+
+> Multi-agent AI with JSON config. Auto-installs Claude & Codex skills.
+
+## Quick Start
+
+```bash
+npm install @amitdeshmukh/ax-crew @ax-llm/ax
+```
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+
+const crew = new AxCrew({
+  crew: [{
+    name: "Agent",
+    description: "Does a thing",
+    signature: "input:string -> output:string",
+    provider: "openai",
+    providerKeyName: "OPENAI_API_KEY",
+    ai: { model: "gpt-4o" }
+  }]
+});
+
+await crew.addAllAgents();
+const agent = crew.agents.get("Agent");
+const { output } = await agent.forward({ input: "Hello" });
+```
+
+## Skills
+
+- [axcrew-ace](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-ace.md) — ACE (Agentic Context Engineering) for AxCrew: feedback loops, online learning, playbook persistence, and optimization.
+- [axcrew-agent-config](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-agent-config.md) — AgentConfig - agent configuration: provider, signature, model, temperature, definition, prompt, executionMode, axAgentOptions, providerArgs
+- [axcrew-code-execution](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-code-execution.md) — AxCrew code execution with AxJSRuntime for sandboxed JavaScript execution. Covers AxJSRuntime setup, permissions, executionMode axagent, RLM mode, and runtime configuration for autonomous code generation and execution.
+- [axcrew-execution-modes](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-execution-modes.md) — ax-crew execution modes: execution mode, axgen, axagent, RLM, runtime, contextFields, AxJSRuntime, contextManagement, fields, shared, globallyShared, excluded, maxTurns, maxSubAgentCalls
+- [axcrew-few-shot](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-few-shot.md) — AxCrew few-shot examples via examples[] field in AgentConfig. Covers in-context learning, demonstration structure, input/output field matching, setExamplesCompat() for dynamic updates, and when to use examples vs definition/prompt.
+- [axcrew-functions](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-functions.md) — Functions and tools: FunctionRegistryType, AxFunction, toFunction, custom functions, AxCrewFunctions, class-based functions with state
+- [axcrew-mcp](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-mcp.md) — ax-crew MCP integration: MCP, Model Context Protocol, STDIO, HTTP SSE, Streamable HTTP, mcpServers, tools, tool filtering, multiple servers
+- [axcrew-metrics](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-metrics.md) — ax-crew metrics and cost tracking: metrics, cost, tracking, getMetrics, getCrewMetrics, MetricsSnapshot, usage, tokens, estimatedCostUSD, resetCosts, resetCrewMetrics
+- [axcrew-patterns](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-patterns.md) — AxCrew multi-agent patterns: pipeline, delegation, fan-out, orchestrator, sequential workflows, and agent coordination.
+- [axcrew-providers](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-providers.md) — AxCrew provider configuration: openai, anthropic, google-gemini, azure-openai, groq, ollama, mistral, cohere, grok/xAI, perplexity, and model setup.
+- [axcrew-signatures](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-signatures.md) — AxCrew DSPy-style signature format for defining agent inputs/outputs. Covers signature syntax, types (string, number, boolean, class, string[], json, image, audio, date), optional fields (?), field descriptions, and AxSignature builder alternative.
+- [axcrew-state](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-state.md) — State management: shared state, StateInstance, set, get, getAll, reset, accessing state from class-based functions
+- [axcrew-streaming](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-streaming.md) — ax-crew streaming patterns: streaming, streamingForward, stream, delta, real-time, chunks, async generator consumption
+- [axcrew-sub-agents](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-sub-agents.md) — AxCrew sub-agent composition via agents[] field. Covers agent delegation, dependency resolution, lazy agents (addLazyAgent), parent-child tool integration, and multi-agent orchestration patterns.
+- [axcrew-telemetry](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew-telemetry.md) — AxCrew telemetry: OpenTelemetry tracing, metrics, observability with tracer and meter injection.
+- [axcrew](https://github.com/amitdeshmukh/ax-crew/blob/main/src/skills/axcrew.md) — AxCrew - multi-agent orchestration: crew, agents, addAgent, addAllAgents, addAgentsToCrew, forward, streaming, sub-agents
+
+## Links
+
+- [GitHub](https://github.com/amitdeshmukh/ax-crew)
+- [npm](https://www.npmjs.com/package/@amitdeshmukh/ax-crew)
+- [Full docs](https://axcrew.dev/llms-full.txt)
+- [Powered by AxLLM](https://axllm.dev)

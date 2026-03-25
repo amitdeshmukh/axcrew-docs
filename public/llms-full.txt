@@ -1,0 +1,3210 @@
+# AxCrew - Complete Skill Reference
+
+> Multi-agent AI with JSON config. Auto-installs Claude & Codex skills.
+
+Generated: 2026-03-25T11:08:50.487Z
+
+---
+
+## axcrew-ace
+
+**File:** axcrew-ace.md
+**Description:** ACE (Agentic Context Engineering) for AxCrew: feedback loops, online learning, playbook persistence, and optimization.
+
+# ACE (Agentic Context Engineering)
+
+ACE enables agents to learn from human feedback at runtime. Feedback is analyzed, categorized into playbook sections, and injected into the agent's system prompt on every subsequent `forward()` call.
+
+## ACEConfig Shape
+
+```ts
+interface ACEConfig {
+  teacher?: {
+    provider?: Provider;
+    providerKeyName?: string;
+    apiURL?: string;
+    ai?: AxModelConfig & { model: string };
+    providerArgs?: Record<string, unknown>;
+  };
+  persistence?: {
+    playbookPath?: string;
+    initialPlaybook?: Record<string, any>;
+    autoPersist?: boolean;
+    onPersist?: (pb: any) => Promise<void> | void;
+    onLoad?: () => Promise<any> | any;
+  };
+  options?: {
+    maxEpochs?: number;
+    allowDynamicSections?: boolean;
+    tokenBudget?: number;
+    reflectorPrompt?: string;
+    curatorPrompt?: string;
+  };
+  metric?: {
+    metricFnName?: string;
+    primaryOutputField?: string;
+  };
+  compileOnStart?: boolean;
+}
+```
+
+## Agent-Level ACE API
+
+```ts
+// StatefulAxAgent methods:
+await agent.initACE(aceConfig);                          // called automatically during addAgent()
+await agent.applyOnlineUpdate({ example, prediction, feedback }); // learn from feedback
+agent.getPlaybook();                                     // returns current ACEPlaybook
+agent.applyPlaybook(playbook);                           // set playbook directly
+await agent.optimizeOffline({ metric, examples });       // offline compilation
+```
+
+## Crew-Level Feedback Routing
+
+```ts
+// AxCrew tracks which agents participated in a task and routes feedback to all of them:
+crew.trackAgentExecution(taskId, agentName, input);      // automatic during forward()
+crew.recordAgentResult(taskId, agentName, result);       // automatic during forward()
+await crew.applyTaskFeedback({ taskId, feedback, strategy: "all" | "primary" | "weighted" });
+crew.getTaskAgentInvolvement(taskId);                    // inspect execution history
+crew.cleanupOldExecutions(maxAgeMs);                     // prevent memory leaks
+```
+
+## Playbook Persistence
+
+Three persistence options (checked in order):
+1. `onLoad` callback -- custom async loader
+2. `initialPlaybook` -- inline playbook object
+3. `playbookPath` -- JSON file on disk (auto-created)
+
+Auto-save: set `autoPersist: true` with `playbookPath` or `onPersist` callback.
+
+## Canonical Pattern
+
+Adapted from `examples/ace-customer-support.ts` -- an agent that learns customer support exception policies from supervisor feedback.
+
+```ts
+import { AxCrew } from "ax-crew";
+import type { AxCrewConfig, Provider } from "ax-crew";
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "SupportAgent",
+      description: "Customer support agent. Follow company policies strictly.",
+      signature: "ticket:string, policies:string[] -> response:string, decision:string",
+      provider: "google-gemini" as Provider,
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-flash-latest", temperature: 0.7 },
+      options: { stream: false },
+      ace: {
+        teacher: {
+          provider: "google-gemini" as Provider,
+          providerKeyName: "GEMINI_API_KEY",
+          ai: { model: "gemini-flash-latest" },
+        },
+        options: { maxEpochs: 1, allowDynamicSections: true },
+        persistence: {
+          playbookPath: "playbooks/support.json",
+          autoPersist: true,
+        },
+        metric: { primaryOutputField: "response" },
+        compileOnStart: false,
+      },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAgentsToCrew(["SupportAgent"]);
+  const agent = crew.agents!.get("SupportAgent")!;
+
+  // Run the agent
+  const result = await agent.forward({
+    ticket: "Customer wants refund on sale item (defective on arrival)",
+    policies: ["No refunds on sale items", "Returns within 30 days only"],
+  });
+
+  console.log(result.response, result.decision);
+
+  // Apply feedback -- agent learns for future calls
+  const taskId = (result as any)._taskId;
+  if (taskId) {
+    await crew.applyTaskFeedback({
+      taskId,
+      feedback: "Defective products must always be refunded regardless of sale status",
+      strategy: "all",
+    });
+  }
+
+  // Or apply directly to agent (without task routing)
+  await (agent as any).applyOnlineUpdate({
+    example: { ticket: "..." },
+    prediction: result,
+    feedback: "Medical emergencies extend the 30-day window to 60 days",
+  });
+
+  // Inspect learned playbook
+  const playbook = (agent as any).getPlaybook();
+  console.log(JSON.stringify(playbook, null, 2));
+
+  crew.cleanupOldExecutions(60000);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/ace-customer-support.ts](examples/ace-customer-support.ts) for a complete runnable example.
+- See [examples/ace-flight-finder.ts](examples/ace-flight-finder.ts) for another ACE example.
+
+## Do Not Generate
+
+- Do NOT call `initACE()` manually -- it is called automatically when `addAgent()` / `addAgentsToCrew()` detects an `ace` config on the agent.
+- Do NOT set `compileOnStart: true` without providing `examples` and a `metric` -- offline compilation requires both.
+- Do NOT mutate the playbook object directly -- use `applyOnlineUpdate()` or `applyPlaybook()`.
+- Do NOT forget `autoPersist: true` if you want playbook changes saved to disk automatically.
+- Do NOT use `strategy: "weighted"` expecting differentiated weights -- it currently behaves the same as `"all"`.
+
+## References
+
+- [ace-customer-support.ts](examples/ace-customer-support.ts)
+- [ace-flight-finder.ts](examples/ace-flight-finder.ts)
+- [src/agents/ace.ts](src/agents/ace.ts)
+- [AxACE upstream docs](https://axllm.dev/ace/)
+
+---
+
+## axcrew-agent-config
+
+**File:** axcrew-agent-config.md
+**Description:** AgentConfig - agent configuration: provider, signature, model, temperature, definition, prompt, executionMode, axAgentOptions, providerArgs
+
+# AgentConfig
+
+Every agent in a crew is defined by an `AgentConfig` object inside `AxCrewConfig.crew[]`.
+
+## All Fields
+
+```ts
+interface AgentConfig {
+  // Required
+  name: string;                    // Unique agent name
+  description: string;             // Short description (used as default system prompt)
+  signature: string | AxSignature; // DSPy-style signature, e.g. "query:string -> answer:string"
+  provider: Provider;              // "openai" | "anthropic" | "google-gemini" | "azure-openai" | ...
+  ai: AxModelConfig & {           // Model configuration
+    model: string;                 //   model name (required)
+    temperature?: number;          //   sampling temperature
+    maxTokens?: number;            //   max output tokens
+    stream?: boolean;              //   enable streaming at AI level
+  };
+
+  // Optional
+  providerKeyName?: string;        // Env var name for API key (e.g. "OPENAI_API_KEY")
+  apiURL?: string;                 // Custom API endpoint (e.g. ollama on localhost)
+  providerArgs?: Record<string, unknown>; // Provider-specific args forwarded to Ax factory
+  definition?: string;             // Detailed system prompt (must be >= 100 chars per Ax)
+  prompt?: string;                 // Alias for definition (used if definition is omitted)
+  debug?: boolean;                 // Enable debug logging
+  options?: Partial<AxProgramForwardOptions<any>> & Record<string, any>; // Forward options + provider-specific keys
+  functions?: string[];            // Function names from the registry
+  agents?: string[];               // Sub-agent names (must be added to crew first)
+  examples?: Array<Record<string, any>>; // DSPy few-shot examples
+  mcpServers?: Record<string, MCPTransportConfig>; // MCP server configs
+  executionMode?: "axagent" | "axgen"; // Execution engine (default: "axgen")
+  axAgentOptions?: AxCrewAxAgentOptions; // AxAgent-specific options (only for executionMode: "axagent")
+  ace?: ACEConfig;                 // Optional AxACE optimization config
+}
+```
+
+## Canonical Pattern
+
+```ts
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "analyzer",
+      description: "Analyzes user queries and provides structured responses",
+      signature: "userQuery:string -> analysis:string, confidence:number",
+      provider: "anthropic",
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: {
+        model: "claude-sonnet-4-20250514",
+        temperature: 0.5,
+        maxTokens: 2000,
+      },
+      options: { debug: true, stream: false },
+      functions: ["CurrentDateTime"],
+    }
+  ]
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+  const analyzer = crew.agents?.get("analyzer");
+  const result = await analyzer?.forward({ userQuery: "What is quantum computing?" });
+  console.log(result?.analysis, result?.confidence);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Provider Key Pattern
+
+The `providerKeyName` field specifies which environment variable holds the API key. The key is read from `process.env` at agent creation time.
+
+```ts
+{
+  provider: "openai",
+  providerKeyName: "OPENAI_API_KEY",  // reads process.env.OPENAI_API_KEY
+}
+```
+
+## Azure OpenAI Example
+
+Use `providerArgs` for provider-specific configuration:
+
+```ts
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "TestAgent",
+      description: "Test Agent for Azure OpenAI",
+      provider: "azure-openai",
+      providerKeyName: "AZURE_OPENAI_API_KEY",
+      signature: "userQuery:string -> answer:string",
+      ai: {
+        model: "gpt-5-mini",
+        temperature: 0,
+        stream: false
+      },
+      providerArgs: {
+        resourceName: "your-resource-name",
+        deploymentName: "your-deployment-name",
+        version: "2025-01-01-preview"
+      },
+      options: { debug: true, stream: false }
+    }
+  ]
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+  const agent = crew.agents?.get("TestAgent");
+  const response = await agent?.forward({ userQuery: "What is the capital of France?" });
+  console.log(response?.answer);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Execution Mode
+
+| Mode | Engine | When to use |
+|---|---|---|
+| `"axgen"` (default) | `AxGen` | Standard prompt-response with tool calling |
+| `"axagent"` | `AxAgent` | Full agent capabilities: RLM, context fields, actor/responder split |
+
+When `executionMode: "axagent"`, use `axAgentOptions` for agent-specific settings:
+
+```ts
+{
+  executionMode: "axagent",
+  axAgentOptions: {
+    contextFields: ["conversationHistory"],
+    // agents: { ... },   // Agent graph config
+    // functions: { ... }, // Function graph config
+    // actorOptions: { description: "..." },
+    // responderOptions: { description: "..." },
+  }
+}
+```
+
+## Signature Format
+
+DSPy-style string signatures with optional field descriptions:
+
+```
+"input1:type, input2:type -> output1:type, output2:type"
+"topic:string \"The topic\" -> article:string \"The written article\""
+"query:string -> results:string[]"
+```
+
+Supported types: `string`, `number`, `boolean`, `string[]`, `number[]`, etc.
+
+## Supporting files
+- See [examples/providerArgs.ts](examples/providerArgs.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT omit `name`, `description`, `signature`, `provider`, or `ai.model` -- all are required.
+- Do NOT set `definition` to less than 100 characters if you provide it (Ax enforces this minimum).
+- Do NOT confuse `options.stream` (forward option) with `ai.stream` (AI-level streaming config).
+- Do NOT use `providerArgs` for API keys; use `providerKeyName` instead.
+- Do NOT list sub-agents in `agents` that haven't been added to the crew before the parent agent.
+
+## References
+
+- [basic-researcher-writer.ts](examples/basic-researcher-writer.ts)
+- [providerArgs.ts](examples/providerArgs.ts)
+
+---
+
+## axcrew-code-execution
+
+**File:** axcrew-code-execution.md
+**Description:** AxCrew code execution with AxJSRuntime for sandboxed JavaScript execution. Covers AxJSRuntime setup, permissions, executionMode axagent, RLM mode, and runtime configuration for autonomous code generation and execution.
+
+# AxCrew Code Execution
+
+AxJSRuntime from `@ax-llm/ax` provides sandboxed JavaScript execution for agents in RLM (Reasoning Language Model) mode. The agent generates and runs code autonomously to solve tasks.
+
+## Setup
+
+```typescript
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
+import { AxCrew } from 'ax-crew';
+import type { AxCrewConfig } from 'ax-crew';
+
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Analyzer",
+      description: "Analyzes data with code execution capabilities.",
+      executionMode: "axagent", // REQUIRED for runtime
+      signature:
+        'context:string, query:string -> answer:string, keyFindings:string[] "Analyzes context and returns findings"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: {
+        contextFields: ["context"], // fields managed as RLM context
+        runtime, // AxJSRuntime instance
+        maxTurns: 20,
+        maxSubAgentCalls: 40,
+        mode: "simple",
+        contextManagement: {
+          errorPruning: true,
+          hindsightEvaluation: true,
+          pruneRank: 2,
+          tombstoning: {
+            model: "gemini-2.5-flash",
+            modelConfig: { maxTokens: 60 },
+          },
+          stateInspection: { contextThreshold: 3000 },
+        },
+      },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  try {
+    await crew.addAllAgents();
+
+    const analyzer = crew.agents?.get("Analyzer");
+    if (!analyzer) throw new Error("Failed to initialize Analyzer");
+
+    const result = await analyzer.forward({
+      context: "Region,Month,Revenue\nNorth,Jan,48000\nNorth,Feb,54000\nSouth,Jan,39200",
+      query: "Which region has the highest total revenue?",
+    });
+
+    console.log(result.answer);
+    console.log(result.keyFindings);
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## Key Requirements
+
+1. **`executionMode: "axagent"`** -- required for runtime support. The default `"axgen"` mode does not support code execution.
+2. **`axAgentOptions.runtime`** -- pass an `AxJSRuntime` instance.
+3. **`axAgentOptions.contextFields`** -- array of input field names managed as RLM context (can be empty `[]`).
+
+## Shared Runtime Across Agents
+
+A single `AxJSRuntime` instance can be shared across multiple agents:
+
+```typescript
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "PolicyLookup",
+      description: "Looks up policies",
+      executionMode: "axagent",
+      signature: "question:string -> answer:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: { contextFields: [], runtime },
+    },
+    {
+      name: "BillingHelper",
+      description: "Handles billing queries",
+      executionMode: "axagent",
+      signature: "question:string -> answer:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: { contextFields: [], runtime },
+    },
+  ],
+};
+```
+
+## AxJSRuntimePermission
+
+Controls what the sandboxed code can access:
+
+```typescript
+import { AxJSRuntimePermission } from '@ax-llm/ax';
+
+const runtime = new AxJSRuntime({
+  permissions: [
+    AxJSRuntimePermission.TIMING, // access to Date, performance.now()
+  ],
+});
+```
+
+## Minimal RLM Agent (No Context Management)
+
+```typescript
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Coder",
+      description: "Executes JavaScript code to solve tasks",
+      executionMode: "axagent",
+      signature: "task:string -> result:string",
+      provider: "openai",
+      ai: { model: "gpt-4o", temperature: 0 },
+      axAgentOptions: {
+        contextFields: [],
+        runtime: new AxJSRuntime({
+          permissions: [AxJSRuntimePermission.TIMING],
+        }),
+      },
+    },
+  ],
+};
+```
+
+## Supporting files
+- See [examples/rlm-long-task.ts](examples/rlm-long-task.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT use `executionMode: "axgen"` with `runtime` -- code execution requires `"axagent"` mode
+- Do NOT use Google's `codeExecution` tool option -- use `AxJSRuntime` instead for sandboxed execution
+- Do NOT omit `contextFields` in `axAgentOptions` when using `executionMode: "axagent"` -- it is mandatory (use `[]` if no context fields)
+- Do NOT create a new `AxJSRuntime` per request -- reuse a single instance across agents and calls
+- Do NOT confuse `axAgentOptions.runtime` with Node.js runtime -- it is a sandboxed JS execution environment
+
+## References
+
+- [rlm-long-task.ts](examples/rlm-long-task.ts) -- full RLM agent with context management
+- [rlm-shared-fields.ts](examples/rlm-shared-fields.ts) -- shared runtime across sub-agents
+
+---
+
+## axcrew-execution-modes
+
+**File:** axcrew-execution-modes.md
+**Description:** ax-crew execution modes: execution mode, axgen, axagent, RLM, runtime, contextFields, AxJSRuntime, contextManagement, fields, shared, globallyShared, excluded, maxTurns, maxSubAgentCalls
+
+# ax-crew Execution Modes
+
+## axgen (default)
+
+Uses `AxGen` for structured generation. Single-pass, deterministic. Sub-agents become callable tool functions. Best for straightforward input-to-output tasks.
+
+```typescript
+{
+  name: "SimpleAgent",
+  executionMode: "axgen",  // default, can be omitted
+  signature: "query:string -> answer:string",
+  // ...
+}
+```
+
+## axagent
+
+Uses `AxAgent` with RLM (Runtime Language Model). Multi-step agentic reasoning loop. Supports context management, tombstoning, and state inspection.
+
+```typescript
+{
+  name: "ReasoningAgent",
+  executionMode: "axagent",
+  signature: "context:string, query:string -> answer:string",
+  // ...
+  axAgentOptions: {
+    contextFields: ["context"],  // required for axagent (can be empty [])
+    runtime: new AxJSRuntime({ permissions: [AxJSRuntimePermission.TIMING] }),
+  },
+}
+```
+
+Both modes use the same `forward()` / `streamingForward()` API.
+
+## axAgentOptions Full Reference
+
+Type: `AxCrewAxAgentOptions` (extends `Partial<AxAgentOptions>`)
+
+```typescript
+axAgentOptions: {
+  // Required: which input fields contain context for RLM processing
+  contextFields: string[],
+
+  // Runtime for code execution in RLM
+  runtime?: AxJSRuntime,
+
+  // Max reasoning turns before stopping
+  maxTurns?: number,
+
+  // Max sub-agent delegations
+  maxSubAgentCalls?: number,
+
+  // RLM mode
+  mode?: "simple" | "full",
+
+  // Context management strategies
+  contextManagement?: {
+    errorPruning?: boolean,          // prune context on errors
+    hindsightEvaluation?: boolean,   // evaluate context relevance
+    pruneRank?: number,              // ranking threshold for pruning
+    tombstoning?: {                  // summarize pruned context
+      model: string,
+      modelConfig?: { maxTokens?: number },
+    },
+    stateInspection?: {
+      contextThreshold?: number,     // token count threshold
+    },
+  },
+
+  // Sub-agents and functions (can also be set via top-level agents/functions)
+  agents?: AxAgentOptions['agents'],
+  functions?: AxAgentOptions['functions'],
+
+  // Field sharing between parent and sub-agents
+  fields?: {
+    shared?: string[],          // fields shared with sub-agents
+    globallyShared?: string[],  // fields shared with all descendants
+    excluded?: string[],        // opt out of parent's shared fields
+  },
+}
+```
+
+## fields: shared, globallyShared, excluded
+
+Control how input/output fields propagate between parent and sub-agents in `axagent` mode.
+
+```typescript
+// Parent agent shares knowledgeBase and userId with sub-agents
+{
+  name: "CustomerSupportAgent",
+  executionMode: "axagent",
+  signature: "query:string, knowledgeBase:string, userId:string -> answer:string",
+  agents: ["PolicyLookupAgent", "BillingHelperAgent", "SentimentClassifierAgent"],
+  axAgentOptions: {
+    contextFields: ["knowledgeBase"],
+    fields: { shared: ["knowledgeBase", "userId"] },
+    runtime,
+  },
+}
+
+// Sub-agent that opts OUT of receiving shared fields
+{
+  name: "SentimentClassifierAgent",
+  executionMode: "axagent",
+  signature: 'question:string -> sentiment:string "positive, negative, or neutral"',
+  axAgentOptions: {
+    contextFields: [],
+    fields: { excluded: ["knowledgeBase", "userId"] },  // won't receive these
+    runtime,
+  },
+}
+```
+
+## Canonical Pattern: RLM with Context Management
+
+From `rlm-long-task.ts`:
+
+```typescript
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Analyzer",
+      description: "Analyzes a large dataset with semantic context management.",
+      executionMode: "axagent",
+      signature:
+        'context:string, query:string -> answer:string, keyFindings:string[] "Analyzes context and returns findings"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: {
+        contextFields: ["context"],
+        runtime,
+        maxTurns: 20,
+        maxSubAgentCalls: 40,
+        mode: "simple",
+        contextManagement: {
+          errorPruning: true,
+          hindsightEvaluation: true,
+          pruneRank: 2,
+          tombstoning: {
+            model: "gemini-2.5-flash",
+            modelConfig: { maxTokens: 60 },
+          },
+          stateInspection: { contextThreshold: 3000 },
+        },
+      },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  try {
+    await crew.addAllAgents();
+
+    const analyzer = crew.agents?.get("Analyzer");
+    if (!analyzer) throw new Error("Failed to initialize Analyzer");
+
+    const result = await analyzer.forward({
+      context: "Region,Month,Product,Units,Revenue\nNorth,Jan,Widget-A,1200,48000\n...",
+      query: "Which region has the highest revenue growth from Jan to Mar?",
+    });
+
+    console.log("Answer:", result.answer);
+    console.log("Key Findings:", result.keyFindings);
+
+    console.log("Agent Metrics:", JSON.stringify(analyzer.getMetrics?.(), null, 2));
+    console.log("Crew Metrics:", JSON.stringify(crew.getCrewMetrics(), null, 2));
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## Canonical Pattern: Shared Fields Between Agents
+
+From `rlm-shared-fields.ts`:
+
+```typescript
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "PolicyLookupAgent",
+      description: "Looks up policy details in the provided knowledge base.",
+      executionMode: "axagent",
+      signature: 'question:string -> answer:string',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: { contextFields: [], runtime },
+    },
+    {
+      name: "SentimentClassifierAgent",
+      description: "Classifies customer message sentiment.",
+      executionMode: "axagent",
+      signature: 'question:string -> sentiment:string "positive, negative, or neutral"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: {
+        contextFields: [],
+        fields: { excluded: ["knowledgeBase", "userId"] },
+        runtime,
+      },
+    },
+    {
+      name: "CustomerSupportAgent",
+      description: "Routes queries to specialists and returns a final answer.",
+      executionMode: "axagent",
+      signature: "query:string, knowledgeBase:string, userId:string -> answer:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      agents: ["PolicyLookupAgent", "SentimentClassifierAgent"],
+      axAgentOptions: {
+        contextFields: ["knowledgeBase"],
+        fields: { shared: ["knowledgeBase", "userId"] },
+        runtime,
+      },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  try {
+    await crew.addAllAgents();
+
+    const supportAgent = crew.agents?.get("CustomerSupportAgent");
+    if (!supportAgent) throw new Error("Failed to initialize");
+
+    const result = await supportAgent.forward({
+      query: "I want to return the Smart Lamp. Am I eligible for a full refund?",
+      knowledgeBase: "REFUND POLICY: Full refund within 30 days...",
+      userId: "cust-42",
+    });
+
+    console.log("Answer:", result.answer);
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/rlm-long-task.ts](examples/rlm-long-task.ts) for a complete runnable example.
+- See [examples/rlm-shared-fields.ts](examples/rlm-shared-fields.ts) for shared fields between agents.
+
+## Do Not Generate
+
+- Do NOT use `axAgentOptions` without setting `executionMode: "axagent"` -- it is ignored in `axgen` mode.
+- Do NOT omit `contextFields` when using `axagent` mode -- it is required (use `[]` if no context fields).
+- Do NOT omit `runtime` when using RLM features -- `AxJSRuntime` is required for code execution.
+- Do NOT confuse `fields.shared` with `contextFields` -- `shared` controls field propagation to sub-agents, `contextFields` identifies which fields contain context for RLM processing.
+- Do NOT set `fields.excluded` on a parent agent -- it is for sub-agents opting out of the parent's shared fields.
+- Do NOT use `axAgentOptions.agents` or `axAgentOptions.functions` unless you need the AxAgent-native format -- prefer the top-level `agents` and `functions` config fields.
+
+## References
+
+- [rlm-long-task.ts](examples/rlm-long-task.ts)
+- [rlm-shared-fields.ts](examples/rlm-shared-fields.ts)
+- [Source: AxCrewAxAgentOptions type](src/types.ts)
+- [Source: StatefulAxAgent execution mode handling](src/agents/index.ts)
+
+---
+
+## axcrew-few-shot
+
+**File:** axcrew-few-shot.md
+**Description:** AxCrew few-shot examples via examples[] field in AgentConfig. Covers in-context learning, demonstration structure, input/output field matching, setExamplesCompat() for dynamic updates, and when to use examples vs definition/prompt.
+
+# AxCrew Few-Shot Examples
+
+The `examples[]` field in `AgentConfig` provides DSPy-style few-shot demonstrations. Each example contains input AND output field values matching the agent's signature.
+
+## Basic Structure
+
+```typescript
+{
+  name: "Agent",
+  signature: "question:string -> answer:string",
+  // ...
+  examples: [
+    { question: "What is 2+2?", answer: "4" },
+    { question: "Capital of France?", answer: "Paris" },
+  ],
+}
+```
+
+Every key in the example object must match a field name from the signature (inputs and/or outputs).
+
+## Full Example
+
+```typescript
+import { AxCrew } from 'ax-crew';
+import type { AxCrewConfig } from 'ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "SupportAgent",
+      description: "Customer support agent that follows company tone",
+      signature:
+        "ticket:string, standardPolicies:string[] -> politeSupportResponse:string, decision:string, policyApplied:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0.7 },
+      examples: [
+        {
+          ticket: "I want to return my laptop purchased 10 days ago.",
+          standardPolicies: ["Returns within 30 days only"],
+          politeSupportResponse:
+            "Of course! Your laptop is within our 30-day return window. I'll process that right away.",
+          decision: "approved",
+          policyApplied: "Returns within 30 days only",
+        },
+        {
+          ticket: "Refund my sale item please.",
+          standardPolicies: ["Sale items: no returns, no refunds"],
+          politeSupportResponse:
+            "I understand your frustration. Unfortunately, sale items are final sale per our policy. I'd be happy to help with an exchange instead.",
+          decision: "denied",
+          policyApplied: "Sale items: no returns, no refunds",
+        },
+      ],
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const agent = crew.agents?.get("SupportAgent");
+  const result = await agent!.forward({
+    ticket: "I bought headphones 15 days ago and they broke.",
+    standardPolicies: ["Returns within 30 days only", "Defective items replaced free"],
+  });
+
+  console.log(result.politeSupportResponse);
+  console.log(result.decision);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Multi-Field Examples
+
+```typescript
+{
+  name: "Planner",
+  description: "Creates execution plans",
+  signature: "task:string, context:string -> plan:string, steps:string[]",
+  provider: "openai",
+  ai: { model: "gpt-4o" },
+  examples: [
+    {
+      task: "Deploy new API version",
+      context: "Kubernetes cluster, 3 environments",
+      plan: "Blue-green deployment with canary rollout",
+      steps: [
+        "Run integration tests",
+        "Deploy to staging",
+        "Canary 10% traffic",
+        "Full rollout",
+      ],
+    },
+    {
+      task: "Migrate database",
+      context: "PostgreSQL 14 to 16, 500GB data",
+      plan: "Logical replication with minimal downtime",
+      steps: [
+        "Set up PG16 replica",
+        "Enable logical replication",
+        "Sync and verify",
+        "Switch over",
+      ],
+    },
+  ],
+}
+```
+
+## Dynamic Example Updates (setExamplesCompat)
+
+Update examples at runtime after agent initialization:
+
+```typescript
+const crew = new AxCrew(config);
+await crew.addAllAgents();
+
+const agent = crew.agents?.get("SupportAgent");
+
+// Update examples dynamically
+(agent as any).setExamplesCompat([
+  {
+    ticket: "My order never arrived.",
+    standardPolicies: ["Reship if not delivered in 14 days"],
+    politeSupportResponse: "I'm sorry about that! Let me reship your order immediately.",
+    decision: "approved",
+    policyApplied: "Reship if not delivered in 14 days",
+  },
+]);
+```
+
+`setExamplesCompat()` replaces all current examples. It is preferred over `setExamples()` (deprecated) for compatibility across Ax runtime versions.
+
+## When to Use examples[] vs definition/prompt
+
+| Use `examples[]` | Use `definition` / `prompt` |
+|---|---|
+| Structured output consistency | System persona / role description |
+| Demonstrate tone, format, style | Complex multi-paragraph instructions |
+| Classification patterns | Domain context / background knowledge |
+| Input-output mappings | Behavioral constraints |
+
+Best practice: use `definition`/`prompt` for WHO the agent is, `examples[]` for HOW it should respond.
+
+## Supporting files
+- See [examples/solve-math-problem.ts](examples/solve-math-problem.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT embed examples as text in `definition` or `prompt` -- use the `examples[]` field for structured few-shot learning
+- Do NOT include fields in examples that are not in the signature -- keys must match signature field names
+- Do NOT provide only input fields in examples -- include BOTH input and output fields to demonstrate expected behavior
+- Do NOT use `setExamples()` directly -- use `setExamplesCompat()` for cross-version compatibility
+- Do NOT add excessive examples (2-5 is typical) -- too many increase token usage without proportional quality gain
+
+## References
+
+- [solve-math-problem.ts](examples/solve-math-problem.ts) -- agent with few-shot examples
+- [ace-customer-support.ts](examples/ace-customer-support.ts) -- agent with structured examples and ACE feedback
+- [basic-researcher-writer.ts](examples/basic-researcher-writer.ts) -- simple agent config
+
+---
+
+## axcrew-functions
+
+**File:** axcrew-functions.md
+**Description:** Functions and tools: FunctionRegistryType, AxFunction, toFunction, custom functions, AxCrewFunctions, class-based functions with state
+
+# Functions
+
+Agents call tools via a `FunctionRegistryType` -- a map of function names to either plain `AxFunction` objects or class-based constructors that receive shared state.
+
+## Two Patterns
+
+### Object-based (plain AxFunction)
+
+```ts
+import type { AxFunction } from '@ax-llm/ax';
+
+const MyTool: AxFunction = {
+  name: 'MyTool',
+  description: 'Does something useful',
+  parameters: {
+    type: 'object',
+    properties: {
+      input: { type: 'string', description: 'The input value' }
+    },
+    required: ['input']
+  },
+  func: ({ input }: { input: string }) => {
+    return `Processed: ${input}`;
+  }
+};
+```
+
+### Class-based (with state access)
+
+Constructor receives shared state. Must implement `toFunction()` returning an `AxFunction`.
+
+```ts
+import type { AxFunction } from '@ax-llm/ax';
+
+class WordPressPost {
+  private state: Record<string, any>;
+
+  constructor(state: Record<string, any>) {
+    this.state = state;
+  }
+
+  toFunction(): AxFunction {
+    return {
+      name: 'WordPressPost',
+      description: 'Creates a post on WordPress',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Post title' },
+          content: { type: 'string', description: 'Post content' },
+          status: { type: 'string', description: 'Post status (draft, publish, private)' }
+        },
+        required: ['title', 'content', 'status']
+      },
+      func: async ({ title, content, status }: { title: string; content: string; status: string }) => {
+        const env = this.state.env || {};
+        const url = env.WORDPRESS_URL;
+        const username = env.WORDPRESS_USERNAME;
+        const password = env.WORDPRESS_PASSWORD;
+        // ... make API call using credentials from state
+        return { id: 123, link: `${url}/?p=123` };
+      }
+    };
+  }
+}
+```
+
+## FunctionRegistryType
+
+```ts
+type FunctionRegistryType = {
+  [key: string]: AxFunction | { new(state: Record<string, any>): { toFunction: () => AxFunction } };
+};
+```
+
+The registry key must match the name used in `AgentConfig.functions[]`.
+
+## Built-in AxCrewFunctions
+
+```ts
+import { AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+// Contains: { CurrentDateTime, DaysBetweenDates }
+```
+
+**CurrentDateTime** -- returns current date/time in `iso`, `datetime`, or `date` format.
+
+**DaysBetweenDates** -- calculates days between two ISO date strings. Parameters: `startDate`, `endDate`.
+
+## Merging Registries
+
+```ts
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+import type { FunctionRegistryType } from '@amitdeshmukh/ax-crew';
+
+const myFunctions: FunctionRegistryType = {
+  MyTool: MyTool,
+  WordPressPost: WordPressPost,  // class-based
+};
+
+// Merge built-in + custom
+const crew = new AxCrew(config, { ...AxCrewFunctions, ...myFunctions });
+```
+
+Then reference by name in agent config:
+
+```ts
+{
+  name: "poster",
+  functions: ["CurrentDateTime", "WordPressPost"],
+  // ...
+}
+```
+
+## Canonical Pattern
+
+Full runnable example adapted from the WordPress example:
+
+```ts
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig, FunctionRegistryType } from '@amitdeshmukh/ax-crew';
+import type { AxFunction } from '@ax-llm/ax';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Plain AxFunction
+const Summarize: AxFunction = {
+  name: 'Summarize',
+  description: 'Summarize text to a given length',
+  parameters: {
+    type: 'object',
+    properties: {
+      text: { type: 'string', description: 'Text to summarize' },
+      maxWords: { type: 'number', description: 'Maximum words' }
+    },
+    required: ['text']
+  },
+  func: ({ text, maxWords }: { text: string; maxWords?: number }) => {
+    const limit = maxWords ?? 50;
+    return text.split(' ').slice(0, limit).join(' ') + '...';
+  }
+};
+
+// Class-based function with state access
+class FetchFromAPI {
+  private state: Record<string, any>;
+  constructor(state: Record<string, any>) { this.state = state; }
+  toFunction(): AxFunction {
+    return {
+      name: 'FetchFromAPI',
+      description: 'Fetch data from a configured API endpoint',
+      parameters: {
+        type: 'object',
+        properties: {
+          endpoint: { type: 'string', description: 'API endpoint path' }
+        },
+        required: ['endpoint']
+      },
+      func: async ({ endpoint }: { endpoint: string }) => {
+        const baseUrl = this.state.env?.API_BASE_URL || 'https://api.example.com';
+        const resp = await fetch(`${baseUrl}${endpoint}`);
+        return await resp.json();
+      }
+    };
+  }
+}
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "assistant",
+      description: "An assistant that can summarize text and fetch data",
+      signature: "request:string -> response:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4o-mini", temperature: 0.5 },
+      functions: ["Summarize", "FetchFromAPI"],
+    }
+  ]
+};
+
+async function main() {
+  const customFunctions: FunctionRegistryType = {
+    Summarize,
+    FetchFromAPI,
+  };
+  const crew = new AxCrew(config, customFunctions);
+
+  // Set state for class-based functions
+  crew.crewState.set("env", { API_BASE_URL: "https://api.example.com" });
+
+  await crew.addAllAgents();
+  const assistant = crew.agents?.get("assistant");
+  const result = await assistant?.forward({ request: "Summarize the latest news" });
+  console.log(result?.response);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT define functions inline in AgentConfig; always use a `FunctionRegistryType` registry passed to the `AxCrew` constructor.
+- Do NOT forget that class-based function constructors receive `state: Record<string, any>`, not `StateInstance`. Access values directly (e.g. `this.state.env`), since the state object is a plain record populated via `crew.crewState.set()`.
+- Do NOT use a registry key that differs from the function name used in `AgentConfig.functions[]` -- they must match.
+- Do NOT import `AxCrewFunctions` from `@ax-llm/ax`; import from `@amitdeshmukh/ax-crew`.
+
+## References
+
+- [write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts)
+- [src/functions/dateTime.ts](src/functions/dateTime.ts)
+- [src/functions/index.ts](src/functions/index.ts)
+
+---
+
+## axcrew-mcp
+
+**File:** axcrew-mcp.md
+**Description:** ax-crew MCP integration: MCP, Model Context Protocol, STDIO, HTTP SSE, Streamable HTTP, mcpServers, tools, tool filtering, multiple servers
+
+# ax-crew MCP (Model Context Protocol)
+
+MCP servers expose external tools to agents. Configured per-agent via `mcpServers` in the agent config. Transport type is auto-detected by config shape.
+
+## Three Transport Types
+
+### STDIO (local process)
+
+```typescript
+mcpServers: {
+  "context7": {
+    command: "npx",                              // required
+    args: ["-y", "@upstash/context7-mcp"],       // optional
+    env: { API_KEY: "..." },                     // optional
+    tools: ["resolve-library-id", "query-docs"], // optional allowlist
+  }
+}
+```
+
+Type: `MCPStdioTransportConfig = { command: string; args?: string[]; env?: NodeJS.ProcessEnv; tools?: string[] }`
+
+### HTTP SSE (remote, server-sent events)
+
+```typescript
+mcpServers: {
+  "api-server": {
+    sseUrl: "https://api.example.com/mcp/sse",   // required
+    tools: ["search", "fetch"],                    // optional allowlist
+  }
+}
+```
+
+Type: `MCPHTTPSSETransportConfig = { sseUrl: string; tools?: string[] }`
+
+### Streamable HTTP (bidirectional)
+
+```typescript
+mcpServers: {
+  "graphjin": {
+    mcpEndpoint: "http://localhost:8080/api/v1/mcp",  // required
+    options: { timeout: 30000 },                       // optional AxMCPStreamableHTTPTransportOptions
+    tools: ["list_workflows", "execute_workflow"],      // optional allowlist
+  }
+}
+```
+
+Type: `MCPStreamableHTTPTransportConfig = { mcpEndpoint: string; options?: AxMCPStreamableHTTPTransportOptions; tools?: string[] }`
+
+## tools[] Allowlist
+
+When `tools` is specified, only those MCP tool names are exposed to the agent. This reduces token usage and prevents the agent from calling unwanted tools.
+
+```typescript
+mcpServers: {
+  "big-server": {
+    command: "npx",
+    args: ["-y", "some-mcp-server"],
+    tools: ["only_this_tool", "and_this_one"],  // filter from all available
+  }
+}
+```
+
+If `tools` is omitted or empty, all tools from the MCP server are exposed.
+
+## Multiple MCP Servers Per Agent
+
+An agent can connect to multiple MCP servers simultaneously. All tools are merged:
+
+```typescript
+{
+  name: "MultiToolAgent",
+  description: "Agent with multiple MCP servers",
+  signature: 'query:string -> answer:string',
+  provider: "google-gemini",
+  providerKeyName: "GEMINI_API_KEY",
+  ai: { model: "gemini-2.5-pro", temperature: 0 },
+  mcpServers: {
+    "filesystem": {
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    },
+    "database": {
+      mcpEndpoint: "http://localhost:8080/api/v1/mcp",
+      tools: ["query", "describe_table"],
+    }
+  }
+}
+```
+
+## Canonical Pattern
+
+### STDIO transport (from mcp-agent.ts)
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Context7DocsAgent",
+      description: "Agent with access to Context7 Docs APIs",
+      signature: 'apiDocQuery:string "a question" -> apiDocAnswer:string "the answer"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-pro", temperature: 0 },
+      options: { debug: true },
+      mcpServers: {
+        "context7": {
+          command: "npx",
+          args: ["-y", "@upstash/context7-mcp", "--api-key", process.env.CONTEXT7_API_KEY!],
+        },
+      },
+    },
+    {
+      name: "ManagerAgent",
+      description: "Orchestrates sub-agents",
+      signature: 'question:string -> answer:string',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-pro", maxTokens: 1000, temperature: 0 },
+      agents: ["Context7DocsAgent"],
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  try {
+    await crew.addAllAgents();
+
+    const manager = crew.agents?.get("ManagerAgent");
+    if (!manager) throw new Error("Agent not found");
+
+    const result = await manager.forward({
+      question: "How do I configure MCP servers in ax-crew?",
+    });
+    console.log("Answer:", result.answer);
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+### Streamable HTTP transport (from graphjin-database-agent.ts)
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "DatabaseAgent",
+      description: "Agent with direct database access via GraphJin",
+      signature: 'dbQuery:string "a database question" -> dbResult:string "the result"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-pro", temperature: 0 },
+      mcpServers: {
+        "graphjin": {
+          command: "graphjin",
+          args: ["mcp", "--server", "http://localhost:8080"],
+        },
+      },
+    },
+    {
+      name: "ManagerAgent",
+      description: "Orchestrates database queries",
+      signature: 'question:string -> answer:string',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-pro", maxTokens: 2000, temperature: 0 },
+      agents: ["DatabaseAgent"],
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  try {
+    await crew.addAllAgents();
+    const manager = crew.agents?.get("ManagerAgent");
+    if (!manager) throw new Error("Agent not found");
+
+    const result = await manager.forward({
+      question: "What tables are available in the database?",
+    });
+    console.log("Answer:", result.answer);
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## Deferred Tool Loading
+
+When an agent has many MCP tools (20+), use the `deferredTools` config to reduce token usage. Only core tools + a `search_tools` meta-function are sent to the LLM. The LLM discovers additional tools on demand. Discovered tools persist across `forward()` calls. Tool results that mention deferred tool names (e.g., error responses suggesting `fix_query_error`) auto-activate those tools.
+
+```typescript
+{
+  name: "BigMCPAgent",
+  description: "Agent with many MCP tools",
+  signature: 'query:string -> answer:string',
+  provider: "anthropic",
+  providerKeyName: "ANTHROPIC_API_KEY",
+  ai: { model: "claude-sonnet-4-6", temperature: 0 },
+  mcpServers: {
+    "large-server": {
+      command: "npx",
+      args: ["-y", "some-large-mcp-server"],
+    },
+  },
+  deferredTools: {
+    enabled: true,       // default: auto (true when tool count > threshold)
+    threshold: 20,       // tool count to activate deferred mode
+    maxSearchResults: 10, // max tools returned per search
+    coreTools: ["execute_graphql", "list_tables"],  // always keep active
+  },
+}
+```
+
+### What is "core" vs "deferred"
+
+- **Core** (always visible): custom functions, sub-agent functions, `resource_*` functions, explicitly listed `coreTools`
+- **Deferred** (discoverable via search): MCP tool functions (except `resource_*`)
+
+### Resource Caching
+
+MCP `resource_*` functions (reference docs like query syntax guides) are automatically cached in-memory. Repeated calls return the cached result without re-fetching from the MCP server.
+
+## Prompt Caching
+
+Prompt caching is enabled by default for all agents. System prompts and tool definitions are cached across multi-step interactions via Anthropic's implicit caching or Gemini's context caching. This reduces token costs by up to 6x for agents with many tools — the system prompt (~13K tokens of tool schemas) is processed once and reused on subsequent steps.
+
+## Supporting files
+- See [examples/mcp-agent.ts](examples/mcp-agent.ts) for a complete runnable example.
+- See [examples/graphjin-database-agent.ts](examples/graphjin-database-agent.ts) for Streamable HTTP transport.
+
+## Do Not Generate
+
+- Do NOT mix transport config keys -- use exactly one of `command`, `sseUrl`, or `mcpEndpoint` per server entry.
+- Do NOT forget `crew.destroy()` -- MCP STDIO processes must be cleaned up.
+- Do NOT put `mcpServers` at the crew level -- it is per-agent only.
+- Do NOT assume MCP tools have `parameters` -- some zero-arg tools omit it; ax-crew normalizes this automatically.
+- Do NOT use `AxMCPStdioTransport` directly -- ax-crew handles transport creation internally from config.
+
+## References
+
+- [mcp-agent.ts](examples/mcp-agent.ts)
+- [graphjin-database-agent.ts](examples/graphjin-database-agent.ts)
+- [Source: agentConfig.ts (initializeMCPServers)](src/agents/agentConfig.ts)
+- [Types: MCPStdioTransportConfig, MCPHTTPSSETransportConfig, MCPStreamableHTTPTransportConfig](src/types.ts)
+
+---
+
+## axcrew-metrics
+
+**File:** axcrew-metrics.md
+**Description:** ax-crew metrics and cost tracking: metrics, cost, tracking, getMetrics, getCrewMetrics, MetricsSnapshot, usage, tokens, estimatedCostUSD, resetCosts, resetCrewMetrics
+
+# ax-crew Metrics & Cost Tracking
+
+## Per-Agent: agent.getMetrics()
+
+Returns a `MetricsSnapshot` scoped to this agent within its crew.
+
+```typescript
+const agent = crew.agents?.get("MyAgent");
+const metrics = agent.getMetrics();
+```
+
+## Crew-Level: crew.getCrewMetrics()
+
+Returns a `MetricsSnapshot` aggregated across all agents in the crew.
+
+```typescript
+const crewMetrics = crew.getCrewMetrics();
+```
+
+## MetricsSnapshot Shape
+
+```typescript
+interface MetricsSnapshot {
+  provider?: string;
+  model?: string;
+  requests: {
+    totalRequests: number;
+    totalErrors: number;
+    errorRate: number;               // errors / requests
+    totalStreamingRequests: number;
+    durationMsSum: number;
+    durationCount: number;
+  };
+  tokens: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens?: number;
+  };
+  estimatedCostUSD: number;          // rounded to 5 decimal places
+  functions: {
+    totalFunctionCalls: number;
+    totalFunctionLatencyMs: number;
+    details?: Array<{                // per-function breakdown
+      name: string;
+      calls: number;
+      totalLatencyMs: number;
+    }>;
+  };
+}
+```
+
+## Reset Methods
+
+```typescript
+// Reset all cost/usage tracking for the entire crew (resets agent usage + metrics)
+crew.resetCosts();
+
+// Reset only the metrics registry for the crew
+crew.resetCrewMetrics();
+```
+
+`resetCosts()` calls `resetUsage()` and `resetMetrics()` on each agent, then clears crew-level metrics.
+`resetCrewMetrics()` only clears the MetricsRegistry entries for this crew.
+
+## Canonical Pattern
+
+```typescript
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "researcher",
+      description: "A research agent that finds information",
+      signature: "query:string -> research:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000, stream: true },
+      functions: ["CurrentDateTime"],
+    },
+    {
+      name: "writer",
+      description: "A writing agent that creates content",
+      signature: "topic:string -> article:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000, stream: true },
+      agents: ["researcher"],
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config, AxCrewFunctions);
+  await crew.addAgentsToCrew(["researcher"]);
+  await crew.addAgentsToCrew(["writer"]);
+
+  const writer = crew.agents?.get("writer");
+  const researcher = crew.agents?.get("researcher");
+  if (!writer || !researcher) throw new Error("Failed to initialize agents");
+
+  try {
+    const { article } = await writer.forward({
+      topic: "Quantum Computing Benefits",
+    });
+    console.log("Article:", article);
+
+    // Per-agent metrics
+    console.log("Writer Metrics:", JSON.stringify(writer.getMetrics?.(), null, 2));
+    console.log("Researcher Metrics:", JSON.stringify(researcher.getMetrics?.(), null, 2));
+
+    // Crew-wide aggregate
+    console.log("Crew Metrics:", JSON.stringify(crew.getCrewMetrics(), null, 2));
+
+    // Reset for next measurement period
+    crew.resetCosts();
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## Accessing Specific Fields
+
+```typescript
+const m = agent.getMetrics();
+
+// Cost
+console.log(`Estimated USD: ${m?.estimatedCostUSD ?? 0}`);
+
+// Tokens
+console.log(`Prompt: ${m?.tokens?.promptTokens}, Completion: ${m?.tokens?.completionTokens}, Total: ${m?.tokens?.totalTokens}`);
+
+// Request stats
+console.log(`Requests: ${m?.requests?.totalRequests}, Errors: ${m?.requests?.totalErrors}`);
+
+// Function calls
+console.log(`Function calls: ${m?.functions?.totalFunctionCalls}`);
+if (m?.functions?.details) {
+  for (const fn of m.functions.details) {
+    console.log(`  ${fn.name}: ${fn.calls} calls, ${fn.totalLatencyMs}ms`);
+  }
+}
+```
+
+## Supporting files
+- See [examples/basic-researcher-writer.ts](examples/basic-researcher-writer.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT call `getMetrics()` on the crew object -- use `crew.getCrewMetrics()` for crew-level and `agent.getMetrics()` for per-agent.
+- Do NOT confuse `resetCosts()` with `resetCrewMetrics()` -- `resetCosts()` is broader (resets agent usage too).
+- Do NOT expect `getMetrics()` to return cost data from the legacy `getUsage()` / `getCosts()` API -- those are separate.
+- Do NOT assume `functions.details` is always present -- it is `undefined` when no function calls have been made.
+- Do NOT forget that `estimatedCostUSD` is an estimate based on tracked token counts and model pricing.
+
+## References
+
+- [basic-researcher-writer.ts](examples/basic-researcher-writer.ts)
+- [rlm-long-task.ts](examples/rlm-long-task.ts)
+- [Source: MetricsSnapshot type](src/metrics/types.ts)
+- [Source: MetricsRegistry](src/metrics/registry.ts)
+
+---
+
+## axcrew-patterns
+
+**File:** axcrew-patterns.md
+**Description:** AxCrew multi-agent patterns: pipeline, delegation, fan-out, orchestrator, sequential workflows, and agent coordination.
+
+# Multi-Agent Patterns
+
+## Pipeline Pattern (A -> B -> C)
+
+Sequential agent calls where each agent's output feeds the next. Each agent is independent -- the orchestration happens in your code.
+
+```ts
+import { AxCrew } from "ax-crew";
+import type { AxCrewConfig, Provider } from "ax-crew";
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Planner",
+      description: "Generates search queries for a topic",
+      signature: 'topic:string, guidance:string -> queries:string[]',
+      provider: "anthropic" as Provider,
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 1 },
+    },
+    {
+      name: "Searcher",
+      description: "Searches the web for a query",
+      signature: 'query:string -> searchResult:string',
+      provider: "google-gemini" as Provider,
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-1.5-pro", temperature: 0.5 },
+      options: {
+        googleSearchRetrieval: { mode: "MODE_UNSPECIFIED" },
+      },
+    },
+    {
+      name: "Writer",
+      description: "Writes a blog post from research",
+      signature: 'topic:string, guidance:string, searchResults:string[] -> title:string, content:string',
+      provider: "anthropic" as Provider,
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 1 },
+    },
+    {
+      name: "Publisher",
+      description: "Publishes a post to WordPress",
+      signature: 'title:string, content:string, status:string -> postResponse:string',
+      provider: "anthropic" as Provider,
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 0 },
+      functions: ["WordPressPost"],
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config, customFunctions);
+  const agents = await crew.addAgentsToCrew([
+    "Planner", "Searcher", "Writer", "Publisher",
+  ]);
+
+  const planner = agents!.get("Planner")!;
+  const searcher = agents!.get("Searcher")!;
+  const writer = agents!.get("Writer")!;
+  const publisher = agents!.get("Publisher")!;
+
+  const topic = "How to tell what your dog is thinking";
+  const guidance = "Fun, engaging, under 500 words.";
+
+  // Step 1: Plan
+  const { queries } = await planner.forward({ topic, guidance });
+
+  // Step 2: Research (sequential to avoid rate limits)
+  const searchResults: string[] = [];
+  for (const query of queries) {
+    const { searchResult } = await searcher.forward({ query });
+    searchResults.push(searchResult);
+  }
+
+  // Step 3: Write
+  const { title, content } = await writer.forward({ topic, guidance, searchResults });
+
+  // Step 4: Publish
+  const { postResponse } = await publisher.forward({ title, content, status: "draft" });
+  console.log(postResponse);
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Delegation Pattern (Sub-Agents)
+
+Use `agents[]` in config to give one agent access to other agents as tools. The parent agent decides when to delegate. Sub-agents must be added to the crew **before** the parent.
+
+```ts
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "MathAgent",
+      description: "Solves math problems using Python code execution",
+      signature: 'mathProblem:string -> solution:string',
+      provider: "google-gemini" as Provider,
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", temperature: 0 },
+      options: { codeExecution: true },
+    },
+    {
+      name: "ManagerAgent",
+      description: "Answers questions, delegating math to MathAgent",
+      signature: 'question:string -> answer:string',
+      provider: "google-gemini" as Provider,
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 1000, temperature: 0 },
+      agents: ["MathAgent"],  // <-- delegation
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+
+  // Order matters: sub-agents first, then parent
+  await crew.addAgentsToCrew(["MathAgent"]);
+  await crew.addAgentsToCrew(["ManagerAgent"]);
+
+  const manager = crew.agents!.get("ManagerAgent")!;
+  const result = await manager.forward({
+    question: "What is the 7th root of 1955?",
+  });
+  console.log(result.answer);
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+Note: `addAgentsToCrew(["MathAgent", "ManagerAgent"])` also works -- it resolves dependencies automatically.
+
+## Fan-Out Pattern (Parallel Agents)
+
+Run multiple agents concurrently with `Promise.all`:
+
+```ts
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const analyst = crew.agents!.get("Analyst")!;
+  const reviewer = crew.agents!.get("Reviewer")!;
+  const factChecker = crew.agents!.get("FactChecker")!;
+
+  const input = { document: "..." };
+
+  // Fan-out: run all three in parallel
+  const [analysis, review, facts] = await Promise.all([
+    analyst.forward(input),
+    reviewer.forward(input),
+    factChecker.forward(input),
+  ]);
+
+  // Merge results downstream
+  const synthesizer = crew.agents!.get("Synthesizer")!;
+  const final = await synthesizer.forward({
+    analysis: analysis.result,
+    review: review.result,
+    facts: facts.result,
+  });
+
+  crew.destroy();
+}
+```
+
+## Orchestrator Pattern
+
+A manager agent with multiple specialist sub-agents. The manager decides which specialist(s) to invoke based on the query.
+
+```ts
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "CodeAgent",
+      description: "Writes and reviews code",
+      signature: "task:string -> code:string",
+      provider: "anthropic" as Provider,
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 0 },
+    },
+    {
+      name: "ResearchAgent",
+      description: "Researches technical topics",
+      signature: "topic:string -> findings:string",
+      provider: "openai" as Provider,
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4o", temperature: 0.5 },
+    },
+    {
+      name: "Orchestrator",
+      description: "Routes tasks to the right specialist and synthesizes results",
+      signature: "request:string -> response:string",
+      provider: "anthropic" as Provider,
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 0.3 },
+      agents: ["CodeAgent", "ResearchAgent"],  // can delegate to either
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAgentsToCrew(["CodeAgent", "ResearchAgent", "Orchestrator"]);
+
+  const orchestrator = crew.agents!.get("Orchestrator")!;
+  const result = await orchestrator.forward({
+    request: "Research WebSocket best practices and write a TypeScript echo server",
+  });
+  console.log(result.response);
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## definition / prompt for System Prompts
+
+Use `definition` (or its alias `prompt`) to provide a detailed system prompt. Must be at least 100 characters. If both are set, `definition` takes precedence.
+
+```ts
+{
+  name: "Writer",
+  description: "Short description (used as tool description for sub-agent delegation)",
+  definition: `You are a senior technical writer specializing in developer documentation.
+Follow the Divio documentation framework: tutorials, how-to guides, reference, explanation.
+Always include code examples. Use active voice. Keep paragraphs under 4 sentences.
+Target audience: intermediate developers familiar with TypeScript.`,
+  signature: "topic:string -> documentation:string",
+  provider: "anthropic" as Provider,
+  providerKeyName: "ANTHROPIC_API_KEY",
+  ai: { model: "claude-3-5-sonnet-20240620", temperature: 0.7 },
+}
+```
+
+## Shared State Across Agents
+
+All agents in a crew share a mutable `state` object for out-of-band data passing:
+
+```ts
+crew.crewState.set("env", { WORDPRESS_URL: "http://...", WORDPRESS_USERNAME: "..." });
+crew.crewState.set("context", { userId: "abc-123" });
+
+// Inside a custom function, state is accessible via the constructor:
+class MyTool {
+  constructor(private state: Record<string, any>) {}
+  toFunction() {
+    return {
+      name: "myTool",
+      description: "...",
+      parameters: { ... },
+      func: async () => {
+        const env = this.state.env;  // access shared state
+        // ...
+      },
+    };
+  }
+}
+```
+
+## Cost Optimization Pattern (Single-Delegation Manager)
+
+When a manager orchestrates sub-agents, use a **single-delegation** pattern: send the full question to the sub-agent in one call. Do NOT break questions into sub-queries — the sub-agent handles multi-step work internally.
+
+This pattern reduced costs from $128 to $1 on the same query in testing.
+
+```ts
+{
+  name: "ManagerAgent",
+  description: "Orchestrates database queries and analysis tasks",
+  definition: `You are an orchestrator that routes questions to specialized agents.
+Delegate each question to the most relevant agent in a SINGLE call — do not break questions into sub-queries.
+The sub-agent will handle all the steps internally. Your job is to route and synthesize, not to decompose.
+If multiple agents are needed, call them and combine their answers.`,
+  signature: 'question:string -> answer:string',
+  provider: "anthropic" as Provider,
+  providerKeyName: "ANTHROPIC_API_KEY",
+  ai: { model: "claude-sonnet-4-6", maxTokens: 2000, temperature: 0 },
+  agents: ["DatabaseAgent", "AnalyticsAgent"],
+}
+```
+
+## Workflow Reuse Pattern (MCP Agents)
+
+For agents connected to MCP servers, use a strategy-driven definition that checks for saved workflows before building new ones. This ensures repeat questions reuse cached workflows ($0.17) instead of rebuilding from scratch ($0.55).
+
+```ts
+{
+  name: "DatabaseAgent",
+  definition: `You answer questions by querying databases via an MCP server.
+
+STRATEGY:
+1. Check first — call list_workflows and list_saved_queries. If a match exists, execute it directly.
+2. Learn — read resource docs, list tables, describe schema.
+3. Build — author a JS workflow with server-side computation, validate with a test query.
+4. Save and run — save the workflow for reuse, then execute it.
+5. If a query fails, call fix_query_error to diagnose. Do not retry the same query.
+6. Synthesize the answer from results.`,
+  // ...
+}
+```
+
+## Supporting files
+- See [examples/write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts) for a complete pipeline example.
+- See [examples/solve-math-problem.ts](examples/solve-math-problem.ts) for a delegation example.
+- See [examples/graphjin-database-agent.ts](examples/graphjin-database-agent.ts) for single-delegation + workflow reuse pattern.
+
+## Do Not Generate
+
+- Do NOT add a parent agent before its sub-agents -- `addAgentsToCrew` resolves dependencies but `addAgent` does not.
+- Do NOT use `agents: ["SelfName"]` -- an agent cannot be its own sub-agent (circular dependency error).
+- Do NOT assume agents share conversation context -- they share `crewState` but each `forward()` call is independent. Pass data explicitly via signatures.
+- Do NOT use `definition` shorter than 100 characters -- Ax requires minimum length for program definitions.
+- Do NOT confuse `description` (used as the tool description when this agent is a sub-agent) with `definition` (the system prompt).
+- Do NOT have the manager decompose questions into sub-queries -- send the full question to the sub-agent in one call.
+
+## References
+
+- [write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts) (4-agent pipeline)
+- [solve-math-problem.ts](examples/solve-math-problem.ts) (delegation)
+- [search-tweets.ts](examples/search-tweets.ts) (streaming)
+
+---
+
+## axcrew-providers
+
+**File:** axcrew-providers.md
+**Description:** AxCrew provider configuration: openai, anthropic, google-gemini, azure-openai, groq, ollama, mistral, cohere, grok/xAI, perplexity, and model setup.
+
+# Providers
+
+AxCrew delegates provider instantiation to the Ax `ai()` factory. The `Provider` type is derived from Ax's `AxAIArgs['name']`, so any provider Ax supports is available.
+
+## Provider Type
+
+```ts
+type Provider = AxAIArgs<any>['name'];
+// Known values: "openai", "anthropic", "google-gemini", "azure-openai",
+// "groq", "ollama", "mistral", "cohere", "grok", "deepseek", "huggingface", etc.
+```
+
+## AgentConfig Provider Fields
+
+```ts
+interface AgentConfig {
+  provider: Provider;              // e.g. "openai"
+  providerKeyName?: string;        // env var name, e.g. "OPENAI_API_KEY"
+  ai: AxModelConfig & { model: string }; // model name + temperature, maxTokens, etc.
+  apiURL?: string;                 // custom endpoint (ollama, proxies)
+  providerArgs?: Record<string, unknown>; // provider-specific args (azure, etc.)
+  options?: Partial<AxProgramForwardOptions<any>> & Record<string, any>; // searchParameters, codeExecution, etc.
+}
+```
+
+## Provider-Specific Configuration
+
+### Azure OpenAI
+
+Use `providerArgs` for Azure-specific fields:
+
+```ts
+{
+  name: "AzureAgent",
+  provider: "azure-openai",
+  providerKeyName: "AZURE_OPENAI_API_KEY",
+  ai: { model: "gpt-5-mini", temperature: 0 },
+  providerArgs: {
+    resourceName: "your-resource-name",
+    deploymentName: "your-deployment-name",
+    version: "2025-01-01-preview",
+  },
+}
+```
+
+### Ollama (Local)
+
+Set `apiURL` to point at the local Ollama endpoint:
+
+```ts
+{
+  name: "LocalAgent",
+  provider: "ollama",
+  providerKeyName: "OLLAMA_API_KEY", // can be any non-empty value
+  apiURL: "http://localhost:11434",
+  ai: { model: "llama3", temperature: 0.7 },
+}
+```
+
+### Grok / xAI
+
+Use provider `"grok"` with a Grok API key:
+
+```ts
+{
+  name: "XSearchAgent",
+  provider: "grok",
+  providerKeyName: "GROK_API_KEY",
+  ai: { model: "grok-3-latest", temperature: 0.1 },
+  options: {
+    stream: true,
+    searchParameters: {
+      mode: "on",
+      returnCitations: true,
+      maxSearchResults: 10,
+      sources: [
+        { type: "x" },
+        { type: "web" },
+        { type: "news" },
+      ],
+    },
+  },
+}
+```
+
+### Perplexity (via MCP)
+
+Use any provider as the agent's LLM and attach Perplexity as an MCP server:
+
+```ts
+{
+  name: "DeepResearchAgent",
+  provider: "google-gemini",
+  providerKeyName: "GEMINI_API_KEY",
+  ai: { model: "gemini-2.5-flash-lite", temperature: 0.1 },
+  mcpServers: {
+    "perplexity-mcp": {
+      command: "uvx",
+      args: ["perplexity-mcp"],
+      env: {
+        PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY,
+        PERPLEXITY_MODEL: "sonar-deep-research",
+      },
+    },
+  },
+}
+```
+
+## Mixed Providers in One Crew
+
+Each agent can use a different provider. The `providerKeyName` maps to an environment variable read at runtime.
+
+```ts
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Planner",
+      provider: "anthropic",
+      providerKeyName: "ANTHROPIC_API_KEY",
+      ai: { model: "claude-3-5-sonnet-20240620", temperature: 1 },
+      signature: "topic:string -> queries:string[]",
+      description: "Generates search queries",
+    },
+    {
+      name: "Searcher",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-1.5-pro", temperature: 0.5 },
+      signature: "query:string -> results:string",
+      description: "Searches the web",
+    },
+    {
+      name: "Writer",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4o", temperature: 0.8 },
+      signature: "topic:string, results:string[] -> post:string",
+      description: "Writes content from research",
+    },
+  ],
+};
+```
+
+## Canonical Pattern
+
+```ts
+import { AxCrew } from "ax-crew";
+import type { AxCrewConfig } from "ax-crew";
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "TestAgent",
+      description: "Test Agent for Azure OpenAI",
+      provider: "azure-openai",
+      providerKeyName: "AZURE_OPENAI_API_KEY",
+      signature: "userQuery:string -> answer:string",
+      ai: { model: "gpt-5-mini", temperature: 0 },
+      providerArgs: {
+        resourceName: "your-resource-name",
+        deploymentName: "your-deployment-name",
+        version: "2025-01-01-preview",
+      },
+      options: { debug: true, stream: false },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const agent = crew.agents?.get("TestAgent");
+  const response = await agent?.forward({ userQuery: "What is the capital of France?" });
+  console.log(response?.answer);
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/providerArgs.ts](examples/providerArgs.ts) for Azure OpenAI configuration.
+- See [examples/search-tweets.ts](examples/search-tweets.ts) for Grok/xAI usage.
+- See [examples/perplexityDeepSearch.ts](examples/perplexityDeepSearch.ts) for Perplexity MCP integration.
+
+## Do Not Generate
+
+- Do NOT hardcode API keys in config -- always use `providerKeyName` which reads from `process.env`.
+- Do NOT use `providerArgs` for non-Azure providers unless the Ax factory documents it -- standard providers only need `provider`, `providerKeyName`, `ai`, and optionally `apiURL`.
+- Do NOT confuse `options.searchParameters` (Grok-specific forward option) with `mcpServers` (external tool servers).
+- Do NOT set `provider: "perplexity"` -- Perplexity is accessed via an MCP server, not as a native Ax provider.
+- Do NOT omit `providerKeyName` -- the crew will throw at initialization if the env var is missing.
+
+## References
+
+- [providerArgs.ts](examples/providerArgs.ts) (Azure OpenAI)
+- [search-tweets.ts](examples/search-tweets.ts) (Grok/xAI)
+- [perplexityDeepSearch.ts](examples/perplexityDeepSearch.ts) (Perplexity MCP)
+- [write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts) (mixed providers)
+- [src/agents/compose.ts](src/agents/compose.ts)
+
+---
+
+## axcrew-signatures
+
+**File:** axcrew-signatures.md
+**Description:** AxCrew DSPy-style signature format for defining agent inputs/outputs. Covers signature syntax, types (string, number, boolean, class, string[], json, image, audio, date), optional fields (?), field descriptions, and AxSignature builder alternative.
+
+# AxCrew Signatures
+
+DSPy-style string format: `"input1:type, input2:type -> output1:type, output2:type"`
+
+## Supported Types
+
+| Type | Description |
+|------|-------------|
+| `string` | Text (default if omitted) |
+| `number` | Numeric |
+| `boolean` | True/false |
+| `string[]` | Array of strings |
+| `json` | Arbitrary JSON object |
+| `class` | Classification label |
+| `image` | Image input |
+| `audio` | Audio input |
+| `date` | Date value |
+
+## Signature Syntax
+
+```typescript
+// Minimal — types default to string
+"question -> answer"
+
+// Explicit types
+"question:string -> answer:string"
+
+// Multiple inputs and outputs
+"question:string, context:string -> answer:string, confidence:number"
+
+// Optional fields use ? suffix
+"query:string, context?:string -> answer:string"
+
+// Field descriptions in quotes
+'question:string "The user question", context:string "Reference text" -> answer:string "Final answer", confidence:number "0-1 score"'
+
+// Array output
+'context:string, query:string -> answer:string, keyFindings:string[] "Analyzes context and returns findings"'
+
+// Classification
+"text:string -> sentiment:class"
+
+// Multi-modal
+"image:image, question:string -> caption:string"
+
+// JSON output
+"query:string -> result:json"
+```
+
+## Full Examples in AgentConfig
+
+```typescript
+import { AxCrew } from 'ax-crew';
+import type { AxCrewConfig } from 'ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    // Simple Q&A
+    {
+      name: "QA",
+      description: "Answers questions",
+      signature: "question:string -> answer:string",
+      provider: "openai",
+      ai: { model: "gpt-4o", temperature: 0 },
+    },
+    // Multi-field with descriptions
+    {
+      name: "Analyst",
+      description: "Analyzes data and returns structured findings",
+      signature:
+        'context:string, query:string -> answer:string, keyFindings:string[] "Analyzes context and returns findings"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+    },
+    // Optional input field
+    {
+      name: "Summarizer",
+      description: "Summarizes text with optional style",
+      signature: "text:string, style?:string -> summary:string",
+      provider: "openai",
+      ai: { model: "gpt-4o-mini" },
+    },
+    // Classification
+    {
+      name: "Classifier",
+      description: "Classifies sentiment",
+      signature: 'question:string -> sentiment:string "positive, negative, or neutral"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+    },
+    // Multi-output with confidence
+    {
+      name: "Extractor",
+      description: "Extracts entities from text",
+      signature: "text:string -> entities:string[], confidence:number",
+      provider: "openai",
+      ai: { model: "gpt-4o" },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const qa = crew.agents?.get("QA");
+  const result = await qa?.forward({ question: "What is TypeScript?" });
+  console.log(result?.answer);
+
+  const analyst = crew.agents?.get("Analyst");
+  const analysis = await analyst?.forward({
+    context: "Q1 revenue: $10M, Q2: $15M, Q3: $12M",
+    query: "What is the revenue trend?",
+  });
+  console.log(analysis?.answer, analysis?.keyFindings);
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## AxSignature Builder Alternative
+
+The `signature` field also accepts an `AxSignature` object from `@ax-llm/ax`:
+
+```typescript
+import { AxSignature } from '@ax-llm/ax';
+import type { AxCrewConfig } from 'ax-crew';
+
+const sig = new AxSignature(
+  "question:string, context:string -> answer:string, confidence:number"
+);
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "Agent",
+      description: "Uses AxSignature object",
+      signature: sig, // AxSignature instance accepted
+      provider: "openai",
+      ai: { model: "gpt-4o" },
+    },
+  ],
+};
+```
+
+## Do Not Generate
+
+- Do NOT omit the `->` separator between inputs and outputs
+- Do NOT use unsupported types (e.g., `int`, `float`, `array`, `object` -- use `number`, `string[]`, `json`)
+- Do NOT put field descriptions outside quotes: use `'field:type "desc"'` not `field:type desc`
+- Do NOT use `|` or union types in signatures -- use `class` type for enums
+- Do NOT confuse `string[]` (array of strings) with `json` (arbitrary object)
+- Do NOT wrap the signature string in `AxSignature()` when passing to config -- raw strings work directly
+
+## References
+
+- [rlm-long-task.ts](examples/rlm-long-task.ts) -- array output in signature
+- [rlm-shared-fields.ts](examples/rlm-shared-fields.ts) -- field descriptions in quotes
+- [ace-customer-support.ts](examples/ace-customer-support.ts) -- multi-output signature
+
+---
+
+## axcrew-state
+
+**File:** axcrew-state.md
+**Description:** State management: shared state, StateInstance, set, get, getAll, reset, accessing state from class-based functions
+
+# State
+
+Every `AxCrew` instance has a shared `StateInstance` at `crew.crewState`. All agents and class-based functions in the crew can access the same state.
+
+## StateInstance API
+
+```ts
+interface StateInstance {
+  set(key: string, value: any): void;   // Set a value
+  get(key: string): any;                // Get a value
+  getAll(): Record<string, any>;        // Get all key-value pairs (shallow copy)
+  reset(): void;                        // Clear all state
+}
+```
+
+## Core Behavior
+
+- `crew.crewState` is created automatically when `new AxCrew(config)` is called.
+- State is keyed by `crewId` (auto-generated UUID). Each crew instance has its own isolated state.
+- State persists for the lifetime of the crew. Calling `crew.destroy()` calls `crewState.reset()`.
+- Values can be any type: strings, objects, arrays, etc.
+
+## Canonical Pattern
+
+```ts
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig, FunctionRegistryType } from '@amitdeshmukh/ax-crew';
+import type { AxFunction } from '@ax-llm/ax';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Class-based function that reads from shared state
+class SendEmail {
+  private state: Record<string, any>;
+  constructor(state: Record<string, any>) { this.state = state; }
+  toFunction(): AxFunction {
+    return {
+      name: 'SendEmail',
+      description: 'Send an email using configured SMTP credentials',
+      parameters: {
+        type: 'object',
+        properties: {
+          to: { type: 'string', description: 'Recipient email' },
+          subject: { type: 'string', description: 'Email subject' },
+          body: { type: 'string', description: 'Email body' },
+        },
+        required: ['to', 'subject', 'body']
+      },
+      func: async ({ to, subject, body }: { to: string; subject: string; body: string }) => {
+        // Access env credentials set via crew.crewState.set("env", {...})
+        const env = this.state.env || {};
+        const smtpHost = env.SMTP_HOST;
+        const smtpUser = env.SMTP_USER;
+        const smtpPass = env.SMTP_PASS;
+        // ... send email using credentials
+        return { sent: true, to };
+      }
+    };
+  }
+}
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "notifier",
+      description: "An agent that sends email notifications",
+      signature: "task:string -> result:string",
+      provider: "openai",
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4o-mini", temperature: 0 },
+      functions: ["SendEmail"],
+    }
+  ]
+};
+
+async function main() {
+  const functions: FunctionRegistryType = { SendEmail };
+  const crew = new AxCrew(config, functions);
+
+  // Set environment variables in shared state BEFORE adding agents
+  crew.crewState.set("env", {
+    SMTP_HOST: "smtp.example.com",
+    SMTP_USER: "user@example.com",
+    SMTP_PASS: "secret",
+  });
+
+  // You can also set arbitrary data
+  crew.crewState.set("company", "Acme Corp");
+  crew.crewState.set("maxRetries", 3);
+
+  await crew.addAllAgents();
+  const notifier = crew.agents?.get("notifier");
+
+  const result = await notifier?.forward({ task: "Notify user about order shipped" });
+  console.log(result?.result);
+
+  // Read state back
+  console.log("All state:", crew.crewState.getAll());
+  console.log("Company:", crew.crewState.get("company"));
+
+  // Reset state (clear all)
+  crew.crewState.reset();
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Setting Environment Credentials
+
+The common pattern for passing credentials to class-based functions:
+
+```ts
+crew.crewState.set("env", {
+  WORDPRESS_URL: "http://my-wordpress-site.com",
+  WORDPRESS_USERNAME: "my-username",
+  WORDPRESS_PASSWORD: "my-password",
+});
+```
+
+Inside the class-based function, access via `this.state.env`:
+
+```ts
+class MyFunction {
+  private state: Record<string, any>;
+  constructor(state: Record<string, any>) { this.state = state; }
+  toFunction(): AxFunction {
+    return {
+      name: 'MyFunction',
+      description: 'Does something',
+      parameters: { type: 'object', properties: {} },
+      func: () => {
+        const url = this.state.env?.WORDPRESS_URL;  // reads from shared state
+        return url;
+      }
+    };
+  }
+}
+```
+
+## Accessing State from Agents
+
+Each `StatefulAxAgent` has a `crewState` property that references the crew's shared state:
+
+```ts
+const agent = crew.agents?.get("myAgent");
+// agent.crewState is the same StateInstance as crew.crewState
+```
+
+## Supporting files
+- See [examples/write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT assume state values exist without checking; always use optional chaining (e.g. `this.state.env?.KEY`).
+- Do NOT call `crew.crewState.set("env", ...)` after `addAllAgents()` if class-based functions read state during construction -- set state first.
+- Do NOT confuse `crew.crewState` (StateInstance with `set`/`get`/`getAll`/`reset`) with plain objects. The state object passed to class-based function constructors is a plain record, not the `StateInstance` interface.
+- Do NOT store sensitive credentials in state if the state object might be logged or serialized. The `getAll()` method returns all stored values.
+
+## References
+
+- [write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts)
+- [src/state/index.ts](src/state/index.ts)
+- [src/types.ts](src/types.ts)
+
+---
+
+## axcrew-streaming
+
+**File:** axcrew-streaming.md
+**Description:** ax-crew streaming patterns: streaming, streamingForward, stream, delta, real-time, chunks, async generator consumption
+
+# ax-crew Streaming
+
+## streamingForward() vs forward()
+
+`forward()` returns `Promise<Record<string, any>>` -- waits for full response.
+`streamingForward()` returns `AxGenStreamingOut<any>` -- an async generator yielding chunks as they arrive.
+
+Both accept the same input values object. Both work with `axgen` and `axagent` execution modes.
+
+```typescript
+// Blocking
+const result = await agent.forward({ question: "What is AI?" });
+console.log(result.answer);
+
+// Streaming
+const stream = agent.streamingForward({ question: "What is AI?" });
+for await (const chunk of stream) {
+  if (chunk.delta && 'answer' in chunk.delta) {
+    process.stdout.write(chunk.delta.answer);
+  }
+}
+```
+
+## chunk.delta Structure
+
+Each yielded chunk has a `delta` property containing partial values keyed by output field names from the agent's signature.
+
+```typescript
+// For signature: 'question:string -> answer:string'
+// chunk.delta = { answer: "partial text..." }
+
+// For signature: 'query:string -> title:string, summary:string'
+// chunk.delta may contain { title: "..." } or { summary: "..." }
+```
+
+Always check for the field's existence before accessing:
+```typescript
+if (chunk.delta && typeof chunk.delta === 'object' && 'answer' in chunk.delta) {
+  process.stdout.write(chunk.delta.answer);
+}
+```
+
+## Stream Config in Agent Config
+
+Enable streaming at the provider level via `ai.stream` or `options.stream`:
+
+```typescript
+{
+  name: "StreamAgent",
+  ai: { model: "gemini-2.5-flash", stream: true },   // provider-level
+  options: { stream: true },                           // forward options level
+}
+```
+
+## Overload Signatures
+
+```typescript
+// Without explicit AI instance (uses agent's configured AI)
+agent.streamingForward(values: Record<string, any>, options?: AxProgramStreamingForwardOptions): AxGenStreamingOut<any>;
+
+// With explicit AI instance
+agent.streamingForward(ai: AxAI, values: Record<string, any>, options?: AxProgramStreamingForwardOptions): AxGenStreamingOut<any>;
+```
+
+## Canonical Pattern
+
+```typescript
+import { AxCrew } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "ManagerAgent",
+      description: "Completes a user specified task",
+      signature:
+        'question:string "a question to be answered" -> answer:string "the answer to the question"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", maxTokens: 1000, temperature: 0 },
+      options: { debug: true, stream: true },
+      agents: ["MathAgent"],
+    },
+    {
+      name: "MathAgent",
+      description: "Solves math problems",
+      signature:
+        'mathProblem:string "a math problem" -> solution:string "the answer"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-pro", temperature: 0 },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const agent = crew.agents?.get("ManagerAgent");
+  if (!agent) throw new Error("Agent not found");
+
+  const stream = agent.streamingForward({
+    question: "Get me the first 5 fibonacci numbers divided by 2",
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.delta && typeof chunk.delta === 'object' && 'answer' in chunk.delta) {
+      process.stdout.write(chunk.delta.answer);
+    }
+  }
+  console.log('\n');
+
+  // Metrics still available after streaming
+  console.log("Agent Metrics:", JSON.stringify(agent.getMetrics?.(), null, 2));
+  console.log("Crew Metrics:", JSON.stringify(crew.getCrewMetrics(), null, 2));
+
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/streaming.ts](examples/streaming.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT `await` the return of `streamingForward()` -- it returns the async generator directly, not a promise.
+- Do NOT assume `chunk.delta` is always a string -- it is an object keyed by output field names.
+- Do NOT forget to check field existence in `chunk.delta` before accessing (`'fieldName' in chunk.delta`).
+- Do NOT use `forward()` with the expectation of receiving streaming chunks -- use `streamingForward()`.
+- Do NOT skip `crew.destroy()` -- it cleans up MCP servers and resources.
+
+## References
+
+- [streaming.ts](examples/streaming.ts)
+- [Source: StatefulAxAgent.streamingForward](src/agents/index.ts)
+
+---
+
+## axcrew-sub-agents
+
+**File:** axcrew-sub-agents.md
+**Description:** AxCrew sub-agent composition via agents[] field. Covers agent delegation, dependency resolution, lazy agents (addLazyAgent), parent-child tool integration, and multi-agent orchestration patterns.
+
+# AxCrew Sub-Agents
+
+## Core Concept
+
+The `agents[]` field in `AgentConfig` lists names of other agents that become available as tools to the parent agent. AxCrew resolves dependencies and initializes sub-agents before their parent.
+
+## agents[] Field
+
+```typescript
+{
+  name: "ParentAgent",
+  description: "Orchestrates sub-agents",
+  signature: "query:string -> answer:string",
+  provider: "openai",
+  ai: { model: "gpt-4o" },
+  agents: ["SubAgentA", "SubAgentB"], // these become callable tools
+}
+```
+
+The parent agent can call sub-agents as tools automatically. Each sub-agent's signature inputs become the tool's parameters, and its outputs are returned.
+
+## Simple Delegation (Researcher-Writer)
+
+```typescript
+import { AxCrew } from 'ax-crew';
+import type { AxCrewConfig } from 'ax-crew';
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "researcher",
+      description: "A research agent that finds information",
+      signature: "query:string -> research:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000 },
+    },
+    {
+      name: "writer",
+      description: "A writing agent that creates content",
+      signature: "topic:string -> article:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000 },
+      agents: ["researcher"], // writer delegates research to researcher
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  // addAllAgents resolves dependency order automatically
+  await crew.addAllAgents();
+
+  const writer = crew.agents?.get("writer");
+  const { article } = await writer!.forward({
+    topic: "Quantum Computing Benefits",
+  });
+  console.log(article);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Multi-Agent Orchestration (Customer Support)
+
+```typescript
+import { AxJSRuntime, AxJSRuntimePermission } from '@ax-llm/ax';
+import { AxCrew } from 'ax-crew';
+import type { AxCrewConfig } from 'ax-crew';
+
+const runtime = new AxJSRuntime({
+  permissions: [AxJSRuntimePermission.TIMING],
+});
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "PolicyLookupAgent",
+      description: "Looks up policy details in the provided knowledge base.",
+      executionMode: "axagent",
+      signature:
+        'question:string -> answer:string "Looks up company policies and returns a concise answer"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: { contextFields: [], runtime },
+    },
+    {
+      name: "BillingHelperAgent",
+      description: "Answers billing and account questions.",
+      executionMode: "axagent",
+      signature:
+        'question:string -> answer:string "Resolves billing and account questions"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: { contextFields: [], runtime },
+    },
+    {
+      name: "SentimentClassifierAgent",
+      description: "Classifies customer message sentiment.",
+      executionMode: "axagent",
+      signature: 'question:string -> sentiment:string "positive, negative, or neutral"',
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      axAgentOptions: {
+        contextFields: [],
+        fields: { excluded: ["knowledgeBase", "userId"] },
+        runtime,
+      },
+    },
+    {
+      name: "CustomerSupportAgent",
+      description: "Routes queries to specialists and returns a final answer.",
+      executionMode: "axagent",
+      signature: "query:string, knowledgeBase:string, userId:string -> answer:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash", temperature: 0 },
+      agents: [
+        "PolicyLookupAgent",
+        "BillingHelperAgent",
+        "SentimentClassifierAgent",
+      ],
+      axAgentOptions: {
+        contextFields: ["knowledgeBase"],
+        fields: { shared: ["knowledgeBase", "userId"] },
+        runtime,
+      },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(config);
+  await crew.addAllAgents();
+
+  const support = crew.agents?.get("CustomerSupportAgent");
+  const result = await support!.forward({
+    query: "What is your refund policy?",
+    knowledgeBase: "Full refund within 30 days...",
+    userId: "cust-42",
+  });
+  console.log(result.answer);
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Dependency Resolution
+
+`addAllAgents()` and `addAgentsToCrew()` resolve dependencies automatically:
+
+```typescript
+// All agents initialized in dependency order
+await crew.addAllAgents();
+
+// Or add specific agents -- dependencies must be included or already added
+await crew.addAgentsToCrew(["researcher"]); // add leaf first
+await crew.addAgentsToCrew(["writer"]);     // then parent
+```
+
+Dependencies are checked: if agent A lists agent B in `agents[]`, B must be initialized first. `addAllAgents()` handles this automatically via topological ordering.
+
+## Lazy Agents (addLazyAgent)
+
+Defers expensive initialization (MCP servers, AI client) until the agent is first called. Useful for sub-agents that may not be needed on every request.
+
+```typescript
+const crew = new AxCrew(config);
+
+// Eager: initialize immediately
+await crew.addAgentsToCrew(["MainAgent"]);
+
+// Lazy: tool schema is registered immediately, but actual agent
+// initialization (MCP server startup, etc.) is deferred until first call
+crew.addLazyAgent("RarelyUsedAgent");
+```
+
+The lazy agent exposes the same `getFunction()` interface. When the parent agent delegates to it, the real agent is created on-demand.
+
+## Supporting files
+- See [examples/basic-researcher-writer.ts](examples/basic-researcher-writer.ts) for simple delegation.
+- See [examples/rlm-shared-fields.ts](examples/rlm-shared-fields.ts) for multi-agent with shared fields.
+
+## Do Not Generate
+
+- Do NOT list an agent in `agents[]` that is not defined in the crew config
+- Do NOT manually wire sub-agent tool calls -- AxCrew does this automatically from the `agents[]` field
+- Do NOT assume sub-agents share parent state by default -- use `axAgentOptions.fields.shared` for shared fields
+- Do NOT add sub-agents after their parent without using `addAllAgents()` or correct ordering in `addAgentsToCrew()`
+- Do NOT use `addLazyAgent()` for agents that are always needed -- it adds latency on first call
+
+## References
+
+- [basic-researcher-writer.ts](examples/basic-researcher-writer.ts) -- simple delegation
+- [rlm-shared-fields.ts](examples/rlm-shared-fields.ts) -- multi-agent with shared fields
+
+---
+
+## axcrew-telemetry
+
+**File:** axcrew-telemetry.md
+**Description:** AxCrew telemetry: OpenTelemetry tracing, metrics, observability with tracer and meter injection.
+
+# Telemetry
+
+AxCrew accepts OpenTelemetry `tracer` and `meter` instances via the `AxCrewOptions.telemetry` object. When provided, all agent `forward()` and `streamingForward()` calls emit spans and record token/cost metrics automatically.
+
+## AxCrewOptions.telemetry
+
+```ts
+interface AxCrewOptions {
+  debug?: boolean;
+  telemetry?: {
+    tracer?: any;  // OpenTelemetry Tracer instance
+    meter?: any;   // OpenTelemetry Meter instance
+  };
+}
+```
+
+## Setup
+
+```ts
+// Required packages:
+// npm install @opentelemetry/api @opentelemetry/sdk-trace-node @opentelemetry/sdk-metrics
+
+import { metrics, trace } from "@opentelemetry/api";
+import { ConsoleSpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { ConsoleMetricExporter, MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+
+// Tracing
+const tracerProvider = new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(new ConsoleSpanExporter())],
+});
+tracerProvider.register();
+
+// Metrics
+const meterProvider = new MeterProvider({
+  readers: [
+    new PeriodicExportingMetricReader({
+      exporter: new ConsoleMetricExporter(),
+      exportIntervalMillis: 5000,
+    }),
+  ],
+});
+metrics.setGlobalMeterProvider(meterProvider);
+
+// Get instances
+const tracer = trace.getTracer("ax-crew-example");
+const meter = metrics.getMeter("ax-crew-example");
+```
+
+## Passing to AxCrew
+
+```ts
+const crew = new AxCrew(crewConfig, functionsRegistry, {
+  telemetry: { tracer, meter },
+});
+```
+
+The third argument to `AxCrew` is `AxCrewOptions`. Telemetry is optional -- omit it and no spans or metrics are emitted.
+
+## Canonical Pattern
+
+Full working example from `examples/telemetry-demo.ts`:
+
+```ts
+import { AxCrew } from "ax-crew";
+import { AxCrewFunctions } from "ax-crew/functions";
+import type { AxCrewConfig, Provider } from "ax-crew";
+import { metrics, trace } from "@opentelemetry/api";
+import { ConsoleSpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { ConsoleMetricExporter, MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+
+// Setup OpenTelemetry
+const tracerProvider = new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(new ConsoleSpanExporter())],
+});
+tracerProvider.register();
+
+const meterProvider = new MeterProvider({
+  readers: [
+    new PeriodicExportingMetricReader({
+      exporter: new ConsoleMetricExporter(),
+      exportIntervalMillis: 5000,
+    }),
+  ],
+});
+metrics.setGlobalMeterProvider(meterProvider);
+
+const tracer = trace.getTracer("my-app");
+const meter = metrics.getMeter("my-app");
+
+// Crew config
+const crewConfig: AxCrewConfig = {
+  crew: [
+    {
+      name: "Researcher",
+      description: "Researches a topic and provides facts.",
+      signature: "topic:string -> facts:string[]",
+      provider: "openai" as Provider,
+      providerKeyName: "OPENAI_API_KEY",
+      ai: { model: "gpt-4o-mini", temperature: 0.7 },
+      functions: ["CurrentDateTime"],
+    },
+    {
+      name: "Writer",
+      description: "Writes a blog post from facts.",
+      signature: "facts:string[] -> blogPost:string",
+      provider: "google-gemini" as Provider,
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-flash-latest", temperature: 0.7 },
+    },
+  ],
+};
+
+async function main() {
+  const crew = new AxCrew(crewConfig, AxCrewFunctions, {
+    telemetry: { tracer, meter },
+  });
+
+  await crew.addAgent("Researcher");
+  await crew.addAgent("Writer");
+
+  const researcher = crew.agents!.get("Researcher")!;
+  const writer = crew.agents!.get("Writer")!;
+
+  const researchResult = await researcher.forward({
+    topic: "The future of AI agents",
+  });
+
+  const writerResult = await writer.forward({
+    facts: researchResult.facts,
+  });
+
+  console.log(writerResult.blogPost);
+
+  // Wait for metric export flush
+  await new Promise((resolve) => setTimeout(resolve, 6000));
+  crew.destroy();
+}
+
+main().catch(console.error);
+```
+
+## Supporting files
+- See [examples/telemetry-demo.ts](examples/telemetry-demo.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT import OpenTelemetry types from `ax-crew` -- import them from `@opentelemetry/api` and the SDK packages.
+- Do NOT pass the `MeterProvider` or `NodeTracerProvider` directly -- pass the `tracer` and `meter` instances obtained via `trace.getTracer()` and `metrics.getMeter()`.
+- Do NOT forget to call `tracerProvider.register()` before creating the crew -- spans will not be emitted otherwise.
+- Do NOT expect telemetry to work without installing `@opentelemetry/api`, `@opentelemetry/sdk-trace-node`, and `@opentelemetry/sdk-metrics`.
+
+## References
+
+- [telemetry-demo.ts](examples/telemetry-demo.ts)
+- [OpenTelemetry JS](https://opentelemetry.io/docs/languages/js/)
+
+---
+
+## axcrew
+
+**File:** axcrew.md
+**Description:** AxCrew - multi-agent orchestration: crew, agents, addAgent, addAllAgents, addAgentsToCrew, forward, streaming, sub-agents
+
+# AxCrew
+
+Multi-agent orchestration built on [ax-llm/ax](https://github.com/ax-llm/ax). Config-driven crew of agents sharing state, functions, and metrics.
+
+## Use These Defaults
+
+```ts
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+```
+
+Always call `addAllAgents()` or `addAgentsToCrew([...names])` before using agents. Retrieve agents via `crew.agents.get("AgentName")`.
+
+## Canonical Pattern
+
+```ts
+import { AxCrew, AxCrewFunctions } from '@amitdeshmukh/ax-crew';
+import type { AxCrewConfig } from '@amitdeshmukh/ax-crew';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const config: AxCrewConfig = {
+  crew: [
+    {
+      name: "researcher",
+      description: "A research agent that finds information",
+      signature: "query:string -> research:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000, stream: true },
+      options: { debug: true },
+      functions: ["CurrentDateTime"]
+    },
+    {
+      name: "writer",
+      description: "A writing agent that creates content",
+      signature: "topic:string -> article:string",
+      provider: "google-gemini",
+      providerKeyName: "GEMINI_API_KEY",
+      ai: { model: "gemini-2.5-flash-lite", maxTokens: 4000, stream: true },
+      options: { debug: true },
+      agents: ["researcher"] // sub-agent
+    }
+  ]
+};
+
+async function main() {
+  const crew = new AxCrew(config, AxCrewFunctions);
+
+  // Add agents (resolves dependency order automatically)
+  await crew.addAllAgents();
+
+  const writer = crew.agents?.get("writer");
+  if (!writer) throw new Error("Failed to initialize writer");
+
+  try {
+    const { article } = await writer.forward({
+      topic: "Quantum Computing Benefits",
+    });
+    console.log("Article:", article);
+
+    // Metrics
+    console.log("Writer Metrics:", JSON.stringify(writer.getMetrics?.(), null, 2));
+    console.log("Crew Metrics:", JSON.stringify(crew.getCrewMetrics?.(), null, 2));
+  } finally {
+    crew.destroy();
+  }
+}
+
+main().catch(console.error);
+```
+
+## AxCrew Constructor
+
+```ts
+new AxCrew(crewConfig: AxCrewConfig, functionsRegistry?: FunctionRegistryType, options?: AxCrewOptions, crewId?: string)
+```
+
+- `crewConfig` -- `{ crew: AgentConfig[] }`. See skill `ax-crew-agent-config`.
+- `functionsRegistry` -- map of function name to `AxFunction` or class-based function. See skill `ax-crew-functions`.
+- `options` -- `{ debug?: boolean, telemetry?: { tracer?: any, meter?: any } }`.
+- `crewId` -- auto-generated UUID if omitted.
+
+## Agent Lifecycle
+
+| Method | Description |
+|---|---|
+| `await crew.addAllAgents()` | Add all agents from config (resolves dependency order) |
+| `await crew.addAgentsToCrew(["A", "B"])` | Add a subset by name |
+| `await crew.addAgent("A")` | Add a single agent |
+| `crew.addLazyAgent("A")` | Defer expensive init until first use |
+| `crew.agents?.get("A")` | Retrieve a `StatefulAxAgent` |
+| `await agent.forward({ key: "value" })` | Run the agent |
+| `agent.streamingForward({ key: "value" })` | Stream output chunks |
+| `crew.crewState` | Shared `StateInstance` across all agents |
+| `crew.resetCosts()` | Reset usage/metrics for all agents |
+| `crew.getCrewMetrics()` | Aggregate metrics snapshot |
+| `crew.destroy()` | Clean up agents, state, execution history |
+
+## Deferred Tool Loading
+
+Agents with many MCP tools can use `deferredTools` in their agent config to avoid overwhelming the LLM context. When the total tool count exceeds a threshold (default 20), only core tools plus a `search_tools` meta-tool are visible to the agent. The LLM discovers additional tools by calling `search_tools`, which uses local multi-signal search (no API calls). Discovered tools persist across `forward()` calls, and related tools are proactively activated alongside the requested tool.
+
+```ts
+{
+  name: "BigToolAgent",
+  // ...
+  mcpServers: { /* ... */ },
+  deferredTools: { maxTools: 20 },  // optional, 20 is the default threshold
+}
+```
+
+## Related Skills
+
+- `ax-crew-agent-config` -- AgentConfig fields, provider setup, executionMode
+- `ax-crew-functions` -- Function registry, custom tools, class-based functions
+- `ax-crew-state` -- Shared state API, accessing state from functions
+
+## Supporting files
+- See [examples/basic-researcher-writer.ts](examples/basic-researcher-writer.ts) for a complete runnable example.
+
+## Do Not Generate
+
+- Do NOT instantiate `AxAgent` or `AxGen` directly; use `AxCrew` which wraps them as `StatefulAxAgent`.
+- Do NOT call `agent.forward()` before calling `addAllAgents()` or `addAgentsToCrew()`.
+- Do NOT import from `@ax-llm/ax` for crew orchestration; import from `@amitdeshmukh/ax-crew`.
+- Do NOT use `crew.createAgent()` directly; use `addAgent()` or `addAllAgents()`.
+- Do NOT forget to call `crew.destroy()` to clean up resources.
+
+## References
+
+- [basic-researcher-writer.ts](examples/basic-researcher-writer.ts)
+- [write-post-and-publish-to-wordpress.ts](examples/write-post-and-publish-to-wordpress.ts)
+- [providerArgs.ts](examples/providerArgs.ts)
+
+---
+
